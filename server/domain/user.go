@@ -15,14 +15,14 @@ type User struct {
 
 type UserRepository interface {
 	Create(context.Context, *User) error
-	GetUser(context.Context) (User, error)
+	GetUser(context.Context, int) (*User, error)
 	GetAllUser(context.Context) ([]User, error)
 	Delete(context.Context, int) error
 }
 
 type UserUsecases interface {
 	Create(context.Context, *User) error
-	GetUser(context.Context) (User, error)
+	GetUser(context.Context, int) (User, error)
 	GetAllUser(context.Context) ([]User, error)
 	Delete(context.Context, int) error
 }
