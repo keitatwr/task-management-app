@@ -6,11 +6,11 @@ import (
 )
 
 type User struct {
-	ID        int       `json:"id"`         // ユーザーID
-	Name      string    `json:"name"`       // 名前
-	Email     string    `json:"email"`      // メールアドレス
-	Password  string    `json:"password"`   // パスワード（ハッシュ化されていることを想定）
-	CreatedAt time.Time `json:"created_at"` // 作成日時
+	ID        int       `json:"id"`
+	Name      string    `json:"name"`
+	Email     string    `json:"email"`
+	Password  string    `json:"password"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type UserRepository interface {
