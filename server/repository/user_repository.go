@@ -27,9 +27,17 @@ func (ur *userRepository) Create(ctx context.Context, user *domain.User) error {
 	})
 }
 
-func (ur *userRepository) GetUser(ctx context.Context, id int) (*domain.User, error) {
+func (ur *userRepository) GetUserByID(ctx context.Context, id int) (*domain.User, error) {
 	var user domain.User
 	if err := ur.db.WithContext(ctx).Where("id = ?", id).Take(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (ur *userRepository) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
+	var user domain.User
+	if err := ur.db.WithContext(ctx).Where("email = ?", email).Take(&user).Error; err != nil {
 		return nil, err
 	}
 	return &user, nil
