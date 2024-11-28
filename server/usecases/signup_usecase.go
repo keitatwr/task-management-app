@@ -7,19 +7,19 @@ import (
 	"github.com/keitatwr/todo-app/domain"
 )
 
-type SignupUsecase struct {
+type signupUsecase struct {
 	userRepository domain.UserRepository
 	contextTimeout time.Duration
 }
 
 func NewSignupUsecase(ur domain.UserRepository, timeout time.Duration) domain.SignupUsecase {
-	return &SignupUsecase{
+	return &signupUsecase{
 		userRepository: ur,
 		contextTimeout: timeout,
 	}
 }
 
-func (su *SignupUsecase) Create(ctx context.Context, name, email, password string) error {
+func (su signupUsecase) Create(ctx context.Context, name, email, password string) error {
 	user := &domain.User{
 		Name:      name,
 		Email:     email,
@@ -33,7 +33,7 @@ func (su *SignupUsecase) Create(ctx context.Context, name, email, password strin
 	return nil
 }
 
-func (su *SignupUsecase) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
+func (su signupUsecase) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
 	user, err := su.userRepository.GetUserByEmail(ctx, email)
 	if err != nil {
 		return nil, err
