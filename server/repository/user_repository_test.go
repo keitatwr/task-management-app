@@ -167,7 +167,7 @@ func TestGetUser(t *testing.T) {
 
 			// run
 			r := repository.NewUserReposiotry(db)
-			actual, err := r.GetUser(context.TODO(), tt.id)
+			actual, err := r.GetUserByID(context.TODO(), tt.id)
 
 			// assert
 
