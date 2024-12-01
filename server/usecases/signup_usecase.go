@@ -21,10 +21,9 @@ func NewSignupUsecase(ur domain.UserRepository, timeout time.Duration) domain.Si
 
 func (su signupUsecase) Create(ctx context.Context, name, email, password string) error {
 	user := &domain.User{
-		Name:      name,
-		Email:     email,
-		Password:  password,
-		CreatedAt: time.Now(),
+		Name:     name,
+		Email:    email,
+		Password: password,
 	}
 	err := su.userRepository.Create(ctx, user)
 	if err != nil {
