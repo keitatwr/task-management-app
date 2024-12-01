@@ -13,6 +13,12 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type AuthUser struct {
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
 type UserRepository interface {
 	Create(context.Context, *User) error
 	GetUserByID(context.Context, int) (*User, error)
