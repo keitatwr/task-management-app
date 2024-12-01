@@ -34,13 +34,8 @@ func getDBMock(t *testing.T) (*gorm.DB, sqlmock.Sqlmock, func()) {
 	return gdb, mock, tearDown
 }
 
-func strToTime(tStr string) time.Time {
-	layout := "2006-01-02 15:04:05"
-	t, _ := time.Parse(layout, tStr)
-	return t
-}
-
 func TestCreateUser(t *testing.T) {
+	now := time.Now()
 	tests := []struct {
 		title         string
 		user          *domain.User
@@ -53,7 +48,7 @@ func TestCreateUser(t *testing.T) {
 				Name:      "sample name",
 				Email:     "test@test.co.jp",
 				Password:  "secret",
-				CreatedAt: strToTime("2024-11-27 08:57:01"),
+				CreatedAt: now,
 			},
 			`INSERT INTO "users" ("name","email","password","created_at") VALUES ($1,$2,$3,$4)`,
 			false,
@@ -64,7 +59,7 @@ func TestCreateUser(t *testing.T) {
 				Name:      "sample name",
 				Email:     "test@test.co.jp",
 				Password:  "secret",
-				CreatedAt: strToTime("2024-11-27 08:57:01"),
+				CreatedAt: now,
 			},
 			`INSERT INTO "users" ("name","email","password","created_at") VALUES ($1,$2,$3,$4)`,
 			true,
@@ -109,8 +104,8 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestGetUser(t *testing.T) {
+	now := time.Now()
 	columns := []string{"id", "name", "email", "password", "created_at"}
-
 	tests := []struct {
 		title         string
 		id            int
@@ -123,13 +118,13 @@ func TestGetUser(t *testing.T) {
 			"get a user successfully",
 			1,
 			`SELECT * FROM "users" WHERE id = $1 LIMIT $2`,
-			[]driver.Value{1, "sample name", "test@test.co.jp", "secret", strToTime("2024-11-27 08:57:01")},
+			[]driver.Value{1, "sample name", "test@test.co.jp", "secret", now},
 			&domain.User{
 				ID:        1,
 				Name:      "sample name",
 				Email:     "test@test.co.jp",
 				Password:  "secret",
-				CreatedAt: strToTime("2024-11-27 08:57:01"),
+				CreatedAt: now,
 			},
 			false,
 		},
@@ -137,13 +132,13 @@ func TestGetUser(t *testing.T) {
 			"get a user with error",
 			1,
 			`SELECT * FROM "users" WHERE id = $1 LIMIT $2`,
-			[]driver.Value{1, "sample name", "test@test.co.jp", "secret", strToTime("2024-11-27 08:57:01")},
+			[]driver.Value{1, "sample name", "test@test.co.jp", "secret", now},
 			&domain.User{
 				ID:        1,
 				Name:      "sample name",
 				Email:     "test@test.co.jp",
 				Password:  "secret",
-				CreatedAt: strToTime("2024-11-27 08:57:01"),
+				CreatedAt: now,
 			},
 			true,
 		},
@@ -186,6 +181,7 @@ func TestGetUser(t *testing.T) {
 }
 
 func TestGetAllUser(t *testing.T) {
+	now := time.Now()
 	columns := []string{"id", "name", "email", "password", "created_at"} // 期待するカラム数
 
 	tests := []struct {
@@ -199,8 +195,8 @@ func TestGetAllUser(t *testing.T) {
 			"get all users successfully",
 			`SELECT * FROM "users"`,
 			[][]driver.Value{
-				[]driver.Value{1, "sample name 1", "test1@test.co.jp", "secret1", strToTime("2024-11-27 08:57:01")},
-				[]driver.Value{2, "sample name 2", "test2@test.co.jp", "secret2", strToTime("2024-11-28 09:00:00")},
+				[]driver.Value{1, "sample name 1", "test1@test.co.jp", "secret1", now},
+				[]driver.Value{2, "sample name 2", "test2@test.co.jp", "secret2", now},
 			},
 			[]domain.User{
 				{
@@ -208,14 +204,14 @@ func TestGetAllUser(t *testing.T) {
 					Name:      "sample name 1",
 					Email:     "test1@test.co.jp",
 					Password:  "secret1",
-					CreatedAt: strToTime("2024-11-27 08:57:01"),
+					CreatedAt: now,
 				},
 				{
 					ID:        2,
 					Name:      "sample name 2",
 					Email:     "test2@test.co.jp",
 					Password:  "secret2",
-					CreatedAt: strToTime("2024-11-28 09:00:00"),
+					CreatedAt: now,
 				},
 			},
 			false,
@@ -224,8 +220,8 @@ func TestGetAllUser(t *testing.T) {
 			"get all users with error",
 			`SELECT * FROM "users"`,
 			[][]driver.Value{
-				[]driver.Value{1, "sample name 1", "test1@test.co.jp", "secret1", strToTime("2024-11-27 08:57:01")},
-				[]driver.Value{2, "sample name 2", "test2@test.co.jp", "secret2", strToTime("2024-11-28 09:00:00")},
+				[]driver.Value{1, "sample name 1", "test1@test.co.jp", "secret1", now},
+				[]driver.Value{2, "sample name 2", "test2@test.co.jp", "secret2", now},
 			},
 			[]domain.User{
 				{
@@ -233,14 +229,14 @@ func TestGetAllUser(t *testing.T) {
 					Name:      "sample name 1",
 					Email:     "test1@test.co.jp",
 					Password:  "secret1",
-					CreatedAt: strToTime("2024-11-27 08:57:01"),
+					CreatedAt: now,
 				},
 				{
 					ID:        2,
 					Name:      "sample name 2",
 					Email:     "test2@test.co.jp",
 					Password:  "secret2",
-					CreatedAt: strToTime("2024-11-28 09:00:00"),
+					CreatedAt: now,
 				},
 			},
 			true,
