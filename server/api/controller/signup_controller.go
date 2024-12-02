@@ -6,11 +6,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/keitatwr/todo-app/domain"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/keitatwr/todo-app/internal/security"
 )
 
 type SignupController struct {
-	SignupUsecase domain.SignupUsecase
+	SignupUsecase  domain.SignupUsecase
+	PasswordHasher security.PasswordHasher
 }
 
 func (sc *SignupController) Signup(c *gin.Context) {
@@ -31,14 +32,13 @@ func (sc *SignupController) Signup(c *gin.Context) {
 		return
 	}
 
-	// password hashing
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
+	// hash password
+	request.Password, err = sc.PasswordHasher.HashPassword(request.Password)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, domain.ErrorResponse{
 			Message: "failed to hash password"})
 		return
 	}
-	request.Password = string(hashedPassword)
 
 	// create user
 	err = sc.SignupUsecase.Create(c, request.Name, request.Email, request.Password)
