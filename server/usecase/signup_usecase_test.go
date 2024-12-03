@@ -1,4 +1,4 @@
-package usecases_test
+package usecase_test
 
 import (
 	"context"
@@ -8,17 +8,17 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/keitatwr/todo-app/domain"
-	domain_mock "github.com/keitatwr/todo-app/domain/mocks"
-	"github.com/keitatwr/todo-app/usecases"
+	"github.com/keitatwr/todo-app/tests/mocks"
+	"github.com/keitatwr/todo-app/usecase"
 	"github.com/stretchr/testify/require"
 )
 
-func getMockUserRepository(t *testing.T) (*domain_mock.MockUserRepository, func()) {
+func getMockUserRepository(t *testing.T) (*mocks.MockUserRepository, func()) {
 	mockCtrl := gomock.NewController(t)
 	tearDown := func() {
 		defer mockCtrl.Finish()
 	}
-	return domain_mock.NewMockUserRepository(mockCtrl), tearDown
+	return mocks.NewMockUserRepository(mockCtrl), tearDown
 }
 
 func TestCreateUser(t *testing.T) {
@@ -63,7 +63,7 @@ func TestCreateUser(t *testing.T) {
 				mock.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil)
 			}
 
-			usecase := usecases.NewSignupUsecase(mock, 10)
+			usecase := usecase.NewSignupUsecase(mock, 10)
 			err := usecase.Create(context.TODO(), tt.args.name, tt.args.email, tt.args.password)
 
 			if tt.expectedError {
@@ -119,7 +119,7 @@ func TestGetUserByEmail(t *testing.T) {
 				mock.EXPECT().GetUserByEmail(gomock.Any(), gomock.Any()).Return(tt.expected, nil)
 			}
 
-			usecase := usecases.NewSignupUsecase(mock, 10)
+			usecase := usecase.NewSignupUsecase(mock, 10)
 			user, err := usecase.GetUserByEmail(context.TODO(), tt.email)
 
 			if tt.expectedError {
