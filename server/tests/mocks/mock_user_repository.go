@@ -2,7 +2,7 @@
 // Source: user.go
 
 // Package domain_mock is a generated GoMock package.
-package domain_mock
+package mocks
 
 import (
 	context "context"
@@ -106,85 +106,4 @@ func (m *MockUserRepository) GetUserByID(arg0 context.Context, arg1 int) (*domai
 func (mr *MockUserRepositoryMockRecorder) GetUserByID(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByID", reflect.TypeOf((*MockUserRepository)(nil).GetUserByID), arg0, arg1)
-}
-
-// MockUserUsecases is a mock of UserUsecases interface.
-type MockUserUsecases struct {
-	ctrl     *gomock.Controller
-	recorder *MockUserUsecasesMockRecorder
-}
-
-// MockUserUsecasesMockRecorder is the mock recorder for MockUserUsecases.
-type MockUserUsecasesMockRecorder struct {
-	mock *MockUserUsecases
-}
-
-// NewMockUserUsecases creates a new mock instance.
-func NewMockUserUsecases(ctrl *gomock.Controller) *MockUserUsecases {
-	mock := &MockUserUsecases{ctrl: ctrl}
-	mock.recorder = &MockUserUsecasesMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockUserUsecases) EXPECT() *MockUserUsecasesMockRecorder {
-	return m.recorder
-}
-
-// Create mocks base method.
-func (m *MockUserUsecases) Create(arg0 context.Context, arg1 *domain.User) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Create indicates an expected call of Create.
-func (mr *MockUserUsecasesMockRecorder) Create(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockUserUsecases)(nil).Create), arg0, arg1)
-}
-
-// Delete mocks base method.
-func (m *MockUserUsecases) Delete(arg0 context.Context, arg1 int) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Delete indicates an expected call of Delete.
-func (mr *MockUserUsecasesMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockUserUsecases)(nil).Delete), arg0, arg1)
-}
-
-// GetAllUser mocks base method.
-func (m *MockUserUsecases) GetAllUser(arg0 context.Context) ([]domain.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllUser", arg0)
-	ret0, _ := ret[0].([]domain.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetAllUser indicates an expected call of GetAllUser.
-func (mr *MockUserUsecasesMockRecorder) GetAllUser(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUser", reflect.TypeOf((*MockUserUsecases)(nil).GetAllUser), arg0)
-}
-
-// GetUser mocks base method.
-func (m *MockUserUsecases) GetUser(arg0 context.Context, arg1 int) (domain.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUser", arg0, arg1)
-	ret0, _ := ret[0].(domain.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUser indicates an expected call of GetUser.
-func (mr *MockUserUsecasesMockRecorder) GetUser(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUser", reflect.TypeOf((*MockUserUsecases)(nil).GetUser), arg0, arg1)
 }
