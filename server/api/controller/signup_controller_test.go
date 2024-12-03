@@ -12,7 +12,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/keitatwr/todo-app/api/controller"
 	"github.com/keitatwr/todo-app/domain"
-	domain_mock "github.com/keitatwr/todo-app/domain/mocks"
+	"github.com/keitatwr/todo-app/tests/mocks"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -28,15 +28,15 @@ func (emh *ErrMockPasswordHasher) HashPassword(password string) (string, error) 
 	return "", fmt.Errorf("failed to hash password")
 }
 
-func getSignupUsecaseMock(t *testing.T) (*domain_mock.MockSignupUsecase, func()) {
+func getSignupUsecaseMock(t *testing.T) (*mocks.MockSignupUsecase, func()) {
 	ctrl := gomock.NewController(t)
 	teardown := func() {
 		ctrl.Finish()
 	}
-	return domain_mock.NewMockSignupUsecase(ctrl), teardown
+	return mocks.NewMockSignupUsecase(ctrl), teardown
 }
 
-func mockGetUserByEmailForSignup(ctx *gin.Context, signupUsecase *domain_mock.MockSignupUsecase,
+func mockGetUserByEmailForSignup(ctx *gin.Context, signupUsecase *mocks.MockSignupUsecase,
 	tt struct {
 		title           string
 		request         domain.SignupRequest
@@ -57,7 +57,7 @@ func mockGetUserByEmailForSignup(ctx *gin.Context, signupUsecase *domain_mock.Mo
 	}
 }
 
-func mockCreateUserForSignup(ctx *gin.Context, signupUsecase *domain_mock.MockSignupUsecase,
+func mockCreateUserForSignup(ctx *gin.Context, signupUsecase *mocks.MockSignupUsecase,
 	tt struct {
 		title           string
 		request         domain.SignupRequest
@@ -92,7 +92,7 @@ func TestSignupController(t *testing.T) {
 		createUserError bool
 	}{
 		{
-			title: "happy path",
+			title: "signup successfully",
 			request: domain.SignupRequest{
 				Name: "test name", Email: "test@test.co.jp", Password: "secret"},
 			expectedStatus:  http.StatusCreated,

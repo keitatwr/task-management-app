@@ -12,7 +12,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/keitatwr/todo-app/api/controller"
 	"github.com/keitatwr/todo-app/domain"
-	"github.com/keitatwr/todo-app/domain/mocks"
+	"github.com/keitatwr/todo-app/tests/mocks"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -89,7 +89,7 @@ func TestLoginController(t *testing.T) {
 		createSessionError bool
 	}{
 		{
-			title: "happy path",
+			title: "login successfully",
 			request: domain.LoginRequest{
 				Email:    "test@test.co.jp",
 				Password: "secret",

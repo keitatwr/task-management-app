@@ -49,5 +49,4 @@ func (sc *SignupController) Signup(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, domain.SuccessResponse{Message: "user created"})
-
 }
