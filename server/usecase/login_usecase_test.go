@@ -1,59 +1,81 @@
-package usecases_test
+package usecase_test
 
 import (
-	"encoding/json"
+	"fmt"
 	"testing"
 
-	"net/http/httptest"
-
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"github.com/golang/mock/gomock"
 	"github.com/keitatwr/todo-app/domain"
-	"github.com/keitatwr/todo-app/usecases"
+	"github.com/keitatwr/todo-app/tests/mocks"
+	"github.com/keitatwr/todo-app/usecase"
 	"github.com/stretchr/testify/assert"
 )
 
+func getMockSessionManager(t *testing.T) (*mocks.MockSessionManager, func()) {
+	mockCtrl := gomock.NewController(t)
+	tearDown := func() {
+		defer mockCtrl.Finish()
+	}
+	return mocks.NewMockSessionManager(mockCtrl), tearDown
+}
+
 func TestCreateSession(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	// ctrl := gomock.NewController(t)
-	// defer ctrl.Finish()
-
-	// モックセッションストアの作成
-	store := cookie.NewStore([]byte("secret"))
-	sessionName := "session"
-	r := gin.Default()
-	r.Use(sessions.Sessions(sessionName, store))
-
-	// テスト用のリクエストとコンテキストの作成
-	w := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request = httptest.NewRequest("GET", "/", nil)
-
-	// セッションミドルウェアを適用
-	r.Use(sessions.Sessions(sessionName, store))
-	r.HandleContext(ctx)
-
-	// テスト用のユーザー
-	user := domain.User{
-		ID:    1,
-		Name:  "test user",
-		Email: "test@example.com",
+	type args struct {
+		userID int
+	}
+	tests := []struct {
+		title         string
+		args          domain.User
+		expectedError bool
+	}{
+		{
+			"create session successfully",
+			domain.User{
+				ID:       1,
+				Name:     "test name",
+				Email:    "test email",
+				Password: "test password",
+			},
+			false,
+		},
+		{
+			"fail to create session",
+			domain.User{
+				ID:       1,
+				Name:     "test name",
+				Email:    "test email",
+				Password: "test password",
+			},
+			true,
+		},
 	}
 
-	// テスト対象のUsecase
-	loginUsecase := usecases.NewLoginUsecase(nil, 0)
+	for _, tt := range tests {
+		t.Run(tt.title, func(t *testing.T) {
+			mock, tearDown := getMockSessionManager(t)
+			defer tearDown()
 
-	// テスト実行
-	err := loginUsecase.CreateSession(ctx, user)
+			// Create a new gin context
+			ginCtx, _ := gin.CreateTestContext(nil)
 
-	// アサーション
-	assert.NoError(t, err)
+			if tt.expectedError {
+				mock.EXPECT().CreateSession(ginCtx, tt.args).Return(fmt.Errorf("failed to create session"))
+			} else {
+				mock.EXPECT().CreateSession(ginCtx, tt.args).Return(nil)
+			}
 
-	// セッションに正しいユーザー情報が保存されているか確認
-	session := sessions.Default(ctx)
-	bUser, _ := json.Marshal(user)
-	assert.Equal(t, string(bUser), session.Get("userInfo"))
+			lu := usecase.NewLoginUsecase(nil, mock, 0)
+			err := lu.CreateSession(ginCtx, tt.args)
 
+			// assert
+			if tt.expectedError {
+				assert.Equal(t, "failed to create session", err.Error())
+			} else {
+				assert.Equal(t, nil, err)
+
+			}
+
+		})
+	}
 }
