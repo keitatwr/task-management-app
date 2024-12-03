@@ -36,17 +36,18 @@ func getSignupUsecaseMock(t *testing.T) (*domain_mock.MockSignupUsecase, func())
 	return domain_mock.NewMockSignupUsecase(ctrl), teardown
 }
 
-func mockGetUserByEmail(ctx *gin.Context, signupUsecase *domain_mock.MockSignupUsecase, tt struct {
-	title           string
-	request         domain.SignupRequest
-	expectedStatus  int
-	expectedMessage string
-	expectedError   bool
-	invalidRequest  bool
-	hashError       bool
-	isAlreadyExists bool
-	createUserError bool
-}) {
+func mockGetUserByEmailForSignup(ctx *gin.Context, signupUsecase *domain_mock.MockSignupUsecase,
+	tt struct {
+		title           string
+		request         domain.SignupRequest
+		expectedStatus  int
+		expectedMessage string
+		expectedError   bool
+		invalidRequest  bool
+		hashError       bool
+		isAlreadyExists bool
+		createUserError bool
+	}) {
 	if tt.isAlreadyExists {
 		signupUsecase.EXPECT().GetUserByEmail(ctx, tt.request.Email).
 			Return(&domain.User{}, nil)
@@ -56,17 +57,18 @@ func mockGetUserByEmail(ctx *gin.Context, signupUsecase *domain_mock.MockSignupU
 	}
 }
 
-func mockCreateUser(ctx *gin.Context, signupUsecase *domain_mock.MockSignupUsecase, tt struct {
-	title           string
-	request         domain.SignupRequest
-	expectedStatus  int
-	expectedMessage string
-	expectedError   bool
-	invalidRequest  bool
-	hashError       bool
-	isAlreadyExists bool
-	createUserError bool
-}) {
+func mockCreateUserForSignup(ctx *gin.Context, signupUsecase *domain_mock.MockSignupUsecase,
+	tt struct {
+		title           string
+		request         domain.SignupRequest
+		expectedStatus  int
+		expectedMessage string
+		expectedError   bool
+		invalidRequest  bool
+		hashError       bool
+		isAlreadyExists bool
+		createUserError bool
+	}) {
 	hashedPassword := "$2a$10$wH8K9f8K9f8K9f8K9f8K9u"
 	if tt.createUserError {
 		signupUsecase.EXPECT().Create(ctx, tt.request.Name, tt.request.Email, hashedPassword).
@@ -77,7 +79,7 @@ func mockCreateUser(ctx *gin.Context, signupUsecase *domain_mock.MockSignupUseca
 	}
 }
 
-func TestSignupController_Signup(t *testing.T) {
+func TestSignupController(t *testing.T) {
 	tests := []struct {
 		title           string
 		request         domain.SignupRequest
@@ -90,7 +92,7 @@ func TestSignupController_Signup(t *testing.T) {
 		createUserError bool
 	}{
 		{
-			title: "create a user successfully",
+			title: "happy path",
 			request: domain.SignupRequest{
 				Name: "test name", Email: "test@test.co.jp", Password: "secret"},
 			expectedStatus:  http.StatusCreated,
@@ -144,9 +146,9 @@ func TestSignupController_Signup(t *testing.T) {
 
 			// mock expectations
 			if !tt.invalidRequest {
-				mockGetUserByEmail(ctx, signupUsecase, tt)
+				mockGetUserByEmailForSignup(ctx, signupUsecase, tt)
 				if !tt.hashError && !tt.isAlreadyExists {
-					mockCreateUser(ctx, signupUsecase, tt)
+					mockCreateUserForSignup(ctx, signupUsecase, tt)
 				}
 			}
 
@@ -156,6 +158,7 @@ func TestSignupController_Signup(t *testing.T) {
 					tt.request.Name, tt.request.Email, tt.request.Password)))
 			ctx.Request.Header.Set("Content-Type", "application/json")
 
+			// controller
 			signupController := controller.SignupController{SignupUsecase: signupUsecase}
 			if tt.hashError {
 				signupController.PasswordHasher = &ErrMockPasswordHasher{}
