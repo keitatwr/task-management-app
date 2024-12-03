@@ -30,7 +30,7 @@ func (lu *loginUsecase) GetUserByEmail(ctx context.Context, email string) (*doma
 	return user, nil
 }
 
-func (lu *loginUsecase) GenerateSession(ctx *gin.Context, user domain.User) error {
+func (lu *loginUsecase) CreateSession(ctx *gin.Context, user domain.User) error {
 	session := sessions.Default(ctx)
 	bUser, err := json.Marshal(user)
 	if err != nil {
