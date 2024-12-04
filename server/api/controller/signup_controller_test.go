@@ -153,7 +153,7 @@ func TestSignupController(t *testing.T) {
 			}
 
 			// request
-			ctx.Request = httptest.NewRequest(http.MethodPost, "/signup", strings.NewReader(
+			ctx.Request = httptest.NewRequest("POST", "/signup", strings.NewReader(
 				fmt.Sprintf(`{"name":"%s","email":"%s","password":"%s"}`,
 					tt.request.Name, tt.request.Email, tt.request.Password)))
 			ctx.Request.Header.Set("Content-Type", "application/json")

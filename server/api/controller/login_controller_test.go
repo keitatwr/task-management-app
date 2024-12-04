@@ -160,7 +160,7 @@ func TestLoginController(t *testing.T) {
 			}
 
 			// request
-			ctx.Request = httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(
+			ctx.Request = httptest.NewRequest("POST", "/login", strings.NewReader(
 				fmt.Sprintf(`{"email":"%s","password":"%s"}`,
 					tt.request.Email, tt.request.Password)))
 			ctx.Request.Header.Set("Content-Type", "application/json")
