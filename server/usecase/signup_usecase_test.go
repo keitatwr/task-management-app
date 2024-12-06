@@ -16,7 +16,7 @@ import (
 func getMockUserRepository(t *testing.T) (*mocks.MockUserRepository, func()) {
 	mockCtrl := gomock.NewController(t)
 	tearDown := func() {
-		defer mockCtrl.Finish()
+		mockCtrl.Finish()
 	}
 	return mocks.NewMockUserRepository(mockCtrl), tearDown
 }
