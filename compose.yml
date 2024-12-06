@@ -1,0 +1,46 @@
+# version: "3.9"
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      target: dev
+    container_name: server
+    ports:
+      - "8080:8080"
+    tty: true
+    volumes:
+      - ./server/:/go/github.com/keitatwr/todo-app
+    depends_on:
+      - "postgres"
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      target: dev
+    container_name: client
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client/:/app/
+    stdin_open: false
+
+  postgres:
+    container_name: db
+    image: postgres:latest
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - TZ="Asia/Tokyo"
+    ports:
+      - "5432:5432"
+    volumes:
+      - db:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d
+
+volumes:
+  db:
