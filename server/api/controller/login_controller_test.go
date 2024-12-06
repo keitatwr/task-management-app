@@ -36,7 +36,7 @@ func getLoginUsecaseMock(t *testing.T) (*mocks.MockLoginUsecase, func()) {
 	return mocks.NewMockLoginUsecase(ctrl), teardown
 }
 
-func mockGetUserByEmailForLogin(ctx *gin.Context, loginUsecase *mocks.MockLoginUsecase, tt struct {
+func mockGetUserByEmailForLogin(loginUsecase *mocks.MockLoginUsecase, tt struct {
 	title              string
 	request            domain.LoginRequest
 	expectedStatus     int
@@ -48,15 +48,15 @@ func mockGetUserByEmailForLogin(ctx *gin.Context, loginUsecase *mocks.MockLoginU
 	createSessionError bool
 }) {
 	if tt.userNotFound {
-		loginUsecase.EXPECT().GetUserByEmail(ctx, tt.request.Email).
+		loginUsecase.EXPECT().GetUserByEmail(gomock.Any(), tt.request.Email).
 			Return(nil, fmt.Errorf("user not found"))
 	} else {
-		loginUsecase.EXPECT().GetUserByEmail(ctx, tt.request.Email).
+		loginUsecase.EXPECT().GetUserByEmail(gomock.Any(), tt.request.Email).
 			Return(&domain.User{}, nil)
 	}
 }
 
-func mockCreateSessionForLogin(ctx *gin.Context, loginUsecase *mocks.MockLoginUsecase, tt struct {
+func mockCreateSessionForLogin(loginUsecase *mocks.MockLoginUsecase, tt struct {
 	title              string
 	request            domain.LoginRequest
 	expectedStatus     int
@@ -68,10 +68,10 @@ func mockCreateSessionForLogin(ctx *gin.Context, loginUsecase *mocks.MockLoginUs
 	createSessionError bool
 }) {
 	if tt.createSessionError {
-		loginUsecase.EXPECT().CreateSession(ctx, gomock.Any()).
+		loginUsecase.EXPECT().CreateSession(gomock.Any(), gomock.Any()).
 			Return(fmt.Errorf("failed to create session"))
 	} else {
-		loginUsecase.EXPECT().CreateSession(ctx, gomock.Any()).
+		loginUsecase.EXPECT().CreateSession(gomock.Any(), gomock.Any()).
 			Return(nil)
 	}
 }
@@ -89,7 +89,7 @@ func TestLoginController(t *testing.T) {
 		createSessionError bool
 	}{
 		{
-			title: "login successfully",
+			title: "success",
 			request: domain.LoginRequest{
 				Email:    "test@test.co.jp",
 				Password: "secret",
@@ -98,7 +98,7 @@ func TestLoginController(t *testing.T) {
 			expectedMessage: "login success",
 		},
 		{
-			title: "login unsuccessfully invalid request",
+			title: "unsuccessfully invalid request",
 			request: domain.LoginRequest{
 				Email: "test@test.co.jp",
 			},
@@ -109,7 +109,7 @@ func TestLoginController(t *testing.T) {
 				"Field validation for 'Password' failed on the 'required' tag",
 		},
 		{
-			title: "login unsuccessfully user not found",
+			title: "unsuccessfully user not found",
 			request: domain.LoginRequest{
 				Email:    "test@test.co.jp",
 				Password: "secret",
@@ -120,7 +120,7 @@ func TestLoginController(t *testing.T) {
 			expectedMessage: "user not found",
 		},
 		{
-			title: "login unsuccessfully password is incorrect",
+			title: "unsuccessfully password is incorrect",
 			request: domain.LoginRequest{
 				Email:    "test@test.co.jp",
 				Password: "secret",
@@ -131,7 +131,7 @@ func TestLoginController(t *testing.T) {
 			expectedMessage:   "password is incorrect",
 		},
 		{
-			title: "login unsuccessfully create session error",
+			title: "unsuccessfully create session error",
 			request: domain.LoginRequest{
 				Email:    "test@test.co.jp",
 				Password: "secret",
@@ -145,6 +145,7 @@ func TestLoginController(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
 			// mock
 			loginUsecase, tearDown := getLoginUsecaseMock(t)
 			defer tearDown()
@@ -153,9 +154,9 @@ func TestLoginController(t *testing.T) {
 
 			// mock expectation
 			if !tt.invalidRequest {
-				mockGetUserByEmailForLogin(ctx, loginUsecase, tt)
+				mockGetUserByEmailForLogin(loginUsecase, tt)
 				if !tt.userNotFound && !tt.passwordIncorrect {
-					mockCreateSessionForLogin(ctx, loginUsecase, tt)
+					mockCreateSessionForLogin(loginUsecase, tt)
 				}
 			}
 
@@ -174,7 +175,9 @@ func TestLoginController(t *testing.T) {
 			}
 
 			// run
-			loginController.Login(ctx)
+			r := gin.Default()
+			r.POST("/login", loginController.Login)
+			r.ServeHTTP(w, ctx.Request)
 
 			// assert
 			assert.Equal(t, tt.expectedStatus, w.Code)

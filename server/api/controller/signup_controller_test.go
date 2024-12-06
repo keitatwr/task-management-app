@@ -36,7 +36,7 @@ func getSignupUsecaseMock(t *testing.T) (*mocks.MockSignupUsecase, func()) {
 	return mocks.NewMockSignupUsecase(ctrl), teardown
 }
 
-func mockGetUserByEmailForSignup(ctx *gin.Context, signupUsecase *mocks.MockSignupUsecase,
+func mockGetUserByEmailForSignup(signupUsecase *mocks.MockSignupUsecase,
 	tt struct {
 		title           string
 		request         domain.SignupRequest
@@ -49,15 +49,15 @@ func mockGetUserByEmailForSignup(ctx *gin.Context, signupUsecase *mocks.MockSign
 		createUserError bool
 	}) {
 	if tt.isAlreadyExists {
-		signupUsecase.EXPECT().GetUserByEmail(ctx, tt.request.Email).
+		signupUsecase.EXPECT().GetUserByEmail(gomock.Any(), tt.request.Email).
 			Return(&domain.User{}, nil)
 	} else {
-		signupUsecase.EXPECT().GetUserByEmail(ctx, tt.request.Email).
+		signupUsecase.EXPECT().GetUserByEmail(gomock.Any(), tt.request.Email).
 			Return(nil, fmt.Errorf("user not found"))
 	}
 }
 
-func mockCreateUserForSignup(ctx *gin.Context, signupUsecase *mocks.MockSignupUsecase,
+func mockCreateUserForSignup(signupUsecase *mocks.MockSignupUsecase,
 	tt struct {
 		title           string
 		request         domain.SignupRequest
@@ -71,10 +71,10 @@ func mockCreateUserForSignup(ctx *gin.Context, signupUsecase *mocks.MockSignupUs
 	}) {
 	hashedPassword := "$2a$10$wH8K9f8K9f8K9f8K9f8K9u"
 	if tt.createUserError {
-		signupUsecase.EXPECT().Create(ctx, tt.request.Name, tt.request.Email, hashedPassword).
+		signupUsecase.EXPECT().Create(gomock.Any(), tt.request.Name, tt.request.Email, hashedPassword).
 			Return(fmt.Errorf("error creating user"))
 	} else {
-		signupUsecase.EXPECT().Create(ctx, tt.request.Name, tt.request.Email, hashedPassword).
+		signupUsecase.EXPECT().Create(gomock.Any(), tt.request.Name, tt.request.Email, hashedPassword).
 			Return(nil)
 	}
 }
@@ -92,14 +92,14 @@ func TestSignupController(t *testing.T) {
 		createUserError bool
 	}{
 		{
-			title: "signup successfully",
+			title: "success",
 			request: domain.SignupRequest{
 				Name: "test name", Email: "test@test.co.jp", Password: "secret"},
 			expectedStatus:  http.StatusCreated,
 			expectedMessage: "user created",
 		},
 		{
-			title:          "create a user unsuccessfully invalid request",
+			title:          "unsuccessfully invalid request",
 			request:        domain.SignupRequest{Name: "test name", Email: "test@test.co.jp"},
 			expectedStatus: http.StatusBadRequest,
 			expectedMessage: "Key: 'SignupRequest.Password' Error:" +
@@ -108,7 +108,7 @@ func TestSignupController(t *testing.T) {
 			invalidRequest: true,
 		},
 		{
-			title: "create a user unsuccessfully hash error",
+			title: "unsuccessfully hash error",
 			request: domain.SignupRequest{Name: "test name", Email: "test@test.co.jp",
 				Password: "secret"},
 			expectedStatus:  http.StatusInternalServerError,
@@ -117,7 +117,7 @@ func TestSignupController(t *testing.T) {
 			hashError:       true,
 		},
 		{
-			title: "create a user unsuccessfully user already exists",
+			title: "unsuccessfully user already exists",
 			request: domain.SignupRequest{Name: "test name", Email: "test@test.co.jp",
 				Password: "secret"},
 			expectedStatus:  http.StatusConflict,
@@ -126,7 +126,7 @@ func TestSignupController(t *testing.T) {
 			isAlreadyExists: true,
 		},
 		{
-			title: "create a user unsuccessfully create user error",
+			title: "unsuccessfully create user error",
 			request: domain.SignupRequest{Name: "test name", Email: "test@test.co.jp",
 				Password: "secret"},
 			expectedStatus:  http.StatusInternalServerError,
@@ -138,6 +138,7 @@ func TestSignupController(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
 			// mock
 			signupUsecase, tearDown := getSignupUsecaseMock(t)
 			defer tearDown()
@@ -146,9 +147,9 @@ func TestSignupController(t *testing.T) {
 
 			// mock expectations
 			if !tt.invalidRequest {
-				mockGetUserByEmailForSignup(ctx, signupUsecase, tt)
+				mockGetUserByEmailForSignup(signupUsecase, tt)
 				if !tt.hashError && !tt.isAlreadyExists {
-					mockCreateUserForSignup(ctx, signupUsecase, tt)
+					mockCreateUserForSignup(signupUsecase, tt)
 				}
 			}
 
@@ -167,7 +168,9 @@ func TestSignupController(t *testing.T) {
 			}
 
 			// run
-			signupController.Signup(ctx)
+			r := gin.Default()
+			r.POST("/signup", signupController.Signup)
+			r.ServeHTTP(w, ctx.Request)
 
 			// assert
 			assert.Equal(t, tt.expectedStatus, w.Code)
