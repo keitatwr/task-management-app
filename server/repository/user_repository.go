@@ -21,7 +21,7 @@ func NewUserReposiotry(db *gorm.DB) domain.UserRepository {
 func (ur *userRepository) Create(ctx context.Context, user *domain.User) error {
 	return ur.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(user).Error; err != nil {
-			return fmt.Errorf("create error: %v", err)
+			return err
 		}
 		return nil
 	})
