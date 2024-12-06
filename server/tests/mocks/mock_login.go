@@ -37,30 +37,30 @@ func (m *MockLoginUsecase) EXPECT() *MockLoginUsecaseMockRecorder {
 }
 
 // CreateSession mocks base method.
-func (m *MockLoginUsecase) CreateSession(arg0 *gin.Context, arg1 domain.User) error {
+func (m *MockLoginUsecase) CreateSession(ctx *gin.Context, user domain.User) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateSession", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateSession", ctx, user)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateSession indicates an expected call of CreateSession.
-func (mr *MockLoginUsecaseMockRecorder) CreateSession(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockLoginUsecaseMockRecorder) CreateSession(ctx, user interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSession", reflect.TypeOf((*MockLoginUsecase)(nil).CreateSession), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSession", reflect.TypeOf((*MockLoginUsecase)(nil).CreateSession), ctx, user)
 }
 
 // GetUserByEmail mocks base method.
-func (m *MockLoginUsecase) GetUserByEmail(arg0 context.Context, arg1 string) (*domain.User, error) {
+func (m *MockLoginUsecase) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUserByEmail", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetUserByEmail", ctx, email)
 	ret0, _ := ret[0].(*domain.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetUserByEmail indicates an expected call of GetUserByEmail.
-func (mr *MockLoginUsecaseMockRecorder) GetUserByEmail(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockLoginUsecaseMockRecorder) GetUserByEmail(ctx, email interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByEmail", reflect.TypeOf((*MockLoginUsecase)(nil).GetUserByEmail), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByEmail", reflect.TypeOf((*MockLoginUsecase)(nil).GetUserByEmail), ctx, email)
 }
