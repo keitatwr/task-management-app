@@ -11,12 +11,13 @@ import (
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/keitatwr/todo-app/domain"
 	"github.com/keitatwr/todo-app/repository"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-func getDBMock(t *testing.T) (*gorm.DB, sqlmock.Sqlmock, func()) {
+func GetDbMock(t *testing.T) (*gorm.DB, sqlmock.Sqlmock, func()) {
 	// SQLMockの初期化
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err, "failed to create SQL mock")
@@ -69,8 +70,8 @@ func TestCreateUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
 			// mock
-			db, mock, teardown := getDBMock(t)
-			defer teardown()
+			db, mock, tearDown := GetDbMock(t)
+			defer tearDown()
 			mock.MatchExpectationsInOrder(false)
 			mock.ExpectBegin()
 			if tt.expectedError {
@@ -91,9 +92,9 @@ func TestCreateUser(t *testing.T) {
 
 			// assert
 			if tt.expectedError {
-				require.Error(t, err)
+				assert.Error(t, err)
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			}
 
 			if err := mock.ExpectationsWereMet(); err != nil {
@@ -147,8 +148,9 @@ func TestGetUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
 			// mock
-			db, mock, teardown := getDBMock(t)
-			defer teardown()
+			db, mock, tearDown := GetDbMock(t)
+			defer tearDown()
+			mock.MatchExpectationsInOrder(false)
 			if tt.expectedError {
 				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
 					WithArgs(tt.id, 1).
@@ -167,10 +169,10 @@ func TestGetUser(t *testing.T) {
 			// assert
 
 			if tt.expectedError {
-				require.Error(t, err)
+				assert.Error(t, err)
 			} else {
-				require.NoError(t, err)
-				require.Equal(t, tt.expected, actual)
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, actual)
 			}
 
 			if err := mock.ExpectationsWereMet(); err != nil {
@@ -246,8 +248,8 @@ func TestGetAllUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
 			// mock
-			db, mock, teardown := getDBMock(t)
-			defer teardown()
+			db, mock, tearDown := GetDbMock(t)
+			defer tearDown()
 			if tt.expectedError {
 				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
 					WillReturnError(fmt.Errorf("get all user error"))
@@ -266,10 +268,10 @@ func TestGetAllUser(t *testing.T) {
 
 			// assert
 			if tt.expectedError {
-				require.Error(t, err)
+				assert.Error(t, err)
 			} else {
-				require.NoError(t, err)
-				require.Equal(t, tt.expected, actual)
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, actual)
 			}
 
 			if err := mock.ExpectationsWereMet(); err != nil {
@@ -303,8 +305,8 @@ func TestDeleteUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
 			// mock
-			db, mock, teardown := getDBMock(t)
-			defer teardown()
+			db, mock, tearDown := GetDbMock(t)
+			defer tearDown()
 			mock.ExpectBegin()
 			if tt.expectedError {
 				mock.ExpectExec(regexp.QuoteMeta(tt.query)).
@@ -324,9 +326,9 @@ func TestDeleteUser(t *testing.T) {
 
 			// assert
 			if tt.expectedError {
-				require.Error(t, err)
+				assert.Error(t, err)
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			}
 
 			if err := mock.ExpectationsWereMet(); err != nil {
