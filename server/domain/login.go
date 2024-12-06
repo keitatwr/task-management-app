@@ -7,8 +7,8 @@ import (
 )
 
 type LoginUsecase interface {
-	GetUserByEmail(context.Context, string) (*User, error)
-	CreateSession(*gin.Context, User) error
+	GetUserByEmail(ctx context.Context, email string) (*User, error)
+	CreateSession(ctx *gin.Context, user User) error
 }
 
 type LoginRequest struct {

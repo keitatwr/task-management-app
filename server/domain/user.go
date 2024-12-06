@@ -13,16 +13,10 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-type AuthUser struct {
-	ID    int    `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
-}
-
 type UserRepository interface {
-	Create(context.Context, *User) error
-	GetUserByID(context.Context, int) (*User, error)
-	GetUserByEmail(context.Context, string) (*User, error)
-	GetAllUser(context.Context) ([]User, error)
-	Delete(context.Context, int) error
+	Create(ctx context.Context, user *User) error
+	GetUserByID(ctx context.Context, id int) (*User, error)
+	GetUserByEmail(ctx context.Context, email string) (*User, error)
+	GetAllUser(ctx context.Context) ([]User, error)
+	Delete(ctx context.Context, id int) error
 }
