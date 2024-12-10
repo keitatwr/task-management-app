@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/keitatwr/todo-app/domain"
 	"gorm.io/gorm"
@@ -54,7 +53,7 @@ func (ur *userRepository) GetAllUser(ctx context.Context) ([]domain.User, error)
 func (ur *userRepository) Delete(ctx context.Context, id int) error {
 	return ur.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("id = ?", id).Delete(&domain.User{}).Error; err != nil {
-			return fmt.Errorf("delete error: %v", err)
+			return err
 		}
 		return nil
 	})
