@@ -2,3 +2,4 @@
 init/*
 tmp/*
 client/*
+*.log
