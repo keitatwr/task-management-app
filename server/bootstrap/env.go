@@ -2,14 +2,16 @@ package bootstrap
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 
 	"github.com/joho/godotenv"
+	"github.com/keitatwr/todo-app/internal/logger"
 )
 
 type Env struct {
+	ServerAddress  string
+	Port           string
 	ContextTimeout int
 	DBHost         string
 	DBPort         string
@@ -18,32 +20,44 @@ type Env struct {
 	DBName         string
 }
 
-func NewEnv() *Env {
+func NewEnv() (*Env, error) {
 	// current working directory
 	dir, err := os.Getwd()
 	if err != nil {
-		log.Fatalf("Error getting current working directory", err)
+		logger.Errorf(nil, "Error getting current working directory: %v", err)
+		return nil, err
 	}
 
+	logger.Info(nil, "loading .env")
 	err = godotenv.Load(fmt.Sprintf("%s/.env", dir))
 	if err != nil {
-		log.Fatalf("Error loading .env file", err)
+		logger.Errorf(nil, "Error loading .env file: %v", err)
+		return nil, err
+	}
+
+	timeout, err := strToInt(os.Getenv("CONTEXT_TIMEOUT"))
+	if err != nil {
+		logger.Errorf(nil, "Error converting string to int: %v", err)
+		return nil, err
 	}
 
 	return &Env{
-		ContextTimeout: strToInt(os.Getenv("CONTEXT_TIMEOUT")),
+		ServerAddress:  os.Getenv("SERVER_ADDRESS"),
+		Port:           os.Getenv("PORT"),
+		ContextTimeout: timeout,
 		DBHost:         os.Getenv("POSTGRES_HOST"),
 		DBPort:         os.Getenv("POSTGRES_PORT"),
 		DBUser:         os.Getenv("POSTGRES_USER"),
 		DBPass:         os.Getenv("POSTGRES_PASSWORD"),
 		DBName:         os.Getenv("POSTGRES_DB"),
-	}
+	}, nil
 }
 
-func strToInt(s string) int {
+func strToInt(s string) (int, error) {
 	i, err := strconv.Atoi(s)
 	if err != nil {
-		log.Fatalf("Error converting string to int")
+		logger.Errorf(nil, fmt.Sprintf("Error converting string to int: %v"), err)
+		return 0, err
 	}
-	return i
+	return i, nil
 }
