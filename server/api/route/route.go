@@ -1,6 +1,7 @@
 package route
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/gin-contrib/sessions"
@@ -11,6 +12,13 @@ import (
 )
 
 func Setup(timeout time.Duration, db *gorm.DB, r *gin.Engine) {
+	r.Use(gin.Recovery())
+	r.Use(middleware.LoggingMiddleware(
+		middleware.NewLoggerConfig(
+			middleware.WithBaseLogLevel(slog.LevelInfo),
+			middleware.WithClientErrorLogLevel(slog.LevelWarn),
+			middleware.WithServerErrorLogLevel(slog.LevelError),
+		)))
 	store := cookie.NewStore([]byte("secret"))
 	r.Use(sessions.Sessions("sessionid", store))
 	publicRouter := r.Group("")
