@@ -25,9 +25,11 @@ type MyLogHandler struct {
 var _ slog.Handler = &MyLogHandler{}
 
 func (h *MyLogHandler) Handle(ctx context.Context, r slog.Record) error {
-	for _, key := range keys {
-		if v := ctx.Value(key); v != nil {
-			r.AddAttrs(slog.Attr{Key: string(key), Value: slog.AnyValue(v)})
+	if ctx != nil {
+		for _, key := range keys {
+			if v := ctx.Value(key); v != nil {
+				r.AddAttrs(slog.Attr{Key: string(key), Value: slog.AnyValue(v)})
+			}
 		}
 	}
 	return h.Handler.Handle(ctx, r)
