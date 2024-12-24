@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/keitatwr/todo-app/domain"
-	"github.com/keitatwr/todo-app/internal/session"
+	"github.com/keitatwr/task-management-app/domain"
+	"github.com/keitatwr/task-management-app/internal/session"
 )
 
 type loginUsecase struct {

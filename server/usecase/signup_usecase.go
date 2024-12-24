@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/keitatwr/todo-app/domain"
+	"github.com/keitatwr/task-management-app/domain"
 )
 
 type signupUsecase struct {

@@ -10,7 +10,7 @@ import (
 
 	gin "github.com/gin-gonic/gin"
 	gomock "github.com/golang/mock/gomock"
-	domain "github.com/keitatwr/todo-app/domain"
+	domain "github.com/keitatwr/task-management-app/domain"
 )
 
 // MockLoginUsecase is a mock of LoginUsecase interface.

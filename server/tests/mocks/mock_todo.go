@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	domain "github.com/keitatwr/todo-app/domain"
+	domain "github.com/keitatwr/task-management-app/domain"
 )
 
 // MockTodoRepository is a mock of TodoRepository interface.
@@ -36,7 +36,7 @@ func (m *MockTodoRepository) EXPECT() *MockTodoRepositoryMockRecorder {
 }
 
 // Create mocks base method.
-func (m *MockTodoRepository) Create(ctx context.Context, todo *domain.Todo) error {
+func (m *MockTodoRepository) Create(ctx context.Context, todo *domain.Task) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", ctx, todo)
 	ret0, _ := ret[0].(error)
@@ -64,10 +64,10 @@ func (mr *MockTodoRepositoryMockRecorder) Delete(ctx, id interface{}) *gomock.Ca
 }
 
 // GetAllTodoByUserID mocks base method.
-func (m *MockTodoRepository) GetAllTodoByUserID(ctx context.Context, id int) ([]domain.Todo, error) {
+func (m *MockTodoRepository) GetAllTodoByUserID(ctx context.Context, id int) ([]domain.Task, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllTodoByUserID", ctx, id)
-	ret0, _ := ret[0].([]domain.Todo)
+	ret0, _ := ret[0].([]domain.Task)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -79,10 +79,10 @@ func (mr *MockTodoRepositoryMockRecorder) GetAllTodoByUserID(ctx, id interface{}
 }
 
 // GetTodoByID mocks base method.
-func (m *MockTodoRepository) GetTodoByID(ctx context.Context, id int) (*domain.Todo, error) {
+func (m *MockTodoRepository) GetTodoByID(ctx context.Context, id int) (*domain.Task, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTodoByID", ctx, id)
-	ret0, _ := ret[0].(*domain.Todo)
+	ret0, _ := ret[0].(*domain.Task)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -159,10 +159,10 @@ func (mr *MockTodoUsecaseMockRecorder) Delete(ctx, id interface{}) *gomock.Call 
 }
 
 // GetAllTodoByUserID mocks base method.
-func (m *MockTodoUsecase) GetAllTodoByUserID(ctx context.Context, id int) ([]domain.Todo, error) {
+func (m *MockTodoUsecase) GetAllTodoByUserID(ctx context.Context, id int) ([]domain.Task, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllTodoByUserID", ctx, id)
-	ret0, _ := ret[0].([]domain.Todo)
+	ret0, _ := ret[0].([]domain.Task)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -174,10 +174,10 @@ func (mr *MockTodoUsecaseMockRecorder) GetAllTodoByUserID(ctx, id interface{}) *
 }
 
 // GetTodoByID mocks base method.
-func (m *MockTodoUsecase) GetTodoByID(ctx context.Context, id int) (*domain.Todo, error) {
+func (m *MockTodoUsecase) GetTodoByID(ctx context.Context, id int) (*domain.Task, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTodoByID", ctx, id)
-	ret0, _ := ret[0].(*domain.Todo)
+	ret0, _ := ret[0].(*domain.Task)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

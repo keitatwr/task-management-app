@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	domain "github.com/keitatwr/todo-app/domain"
+	domain "github.com/keitatwr/task-management-app/domain"
 )
 
 // MockUserRepository is a mock of UserRepository interface.

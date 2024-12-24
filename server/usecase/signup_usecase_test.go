@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/keitatwr/todo-app/domain"
-	"github.com/keitatwr/todo-app/tests/mocks"
-	"github.com/keitatwr/todo-app/usecase"
+	"github.com/keitatwr/task-management-app/domain"
+	"github.com/keitatwr/task-management-app/tests/mocks"
+	"github.com/keitatwr/task-management-app/usecase"
 	"github.com/stretchr/testify/require"
 )
 

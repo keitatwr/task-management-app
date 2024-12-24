@@ -7,7 +7,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
-	"github.com/keitatwr/todo-app/api/middleware"
+	"github.com/keitatwr/task-management-app/api/middleware"
 	"gorm.io/gorm"
 )
 
@@ -26,5 +26,5 @@ func Setup(timeout time.Duration, db *gorm.DB, r *gin.Engine) {
 	NewLoginRouter(timeout, db, publicRouter)
 	privateRouter := r.Group("")
 	privateRouter.Use(middleware.AuthMiddleware())
-	NewTodoRouter(timeout, db, privateRouter)
+	NewTaskRouter(timeout, db, privateRouter)
 }

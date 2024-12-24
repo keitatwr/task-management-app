@@ -10,9 +10,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
-	"github.com/keitatwr/todo-app/api/controller"
-	"github.com/keitatwr/todo-app/domain"
-	"github.com/keitatwr/todo-app/tests/mocks"
+	"github.com/keitatwr/task-management-app/api/controller"
+	"github.com/keitatwr/task-management-app/domain"
+	"github.com/keitatwr/task-management-app/tests/mocks"
 	"github.com/stretchr/testify/assert"
 )
 

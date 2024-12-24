@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/keitatwr/todo-app/domain"
+	"github.com/keitatwr/task-management-app/domain"
 )
 
 var userContextKey = struct{}{}

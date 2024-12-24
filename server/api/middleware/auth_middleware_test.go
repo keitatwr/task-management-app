@@ -9,8 +9,8 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
-	"github.com/keitatwr/todo-app/api/middleware"
-	"github.com/keitatwr/todo-app/domain"
+	"github.com/keitatwr/task-management-app/api/middleware"
+	"github.com/keitatwr/task-management-app/domain"
 	"github.com/stretchr/testify/assert"
 )
 

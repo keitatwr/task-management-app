@@ -4,11 +4,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/keitatwr/todo-app/api/controller"
-	"github.com/keitatwr/todo-app/internal/security"
-	"github.com/keitatwr/todo-app/internal/session"
-	"github.com/keitatwr/todo-app/repository"
-	"github.com/keitatwr/todo-app/usecase"
+	"github.com/keitatwr/task-management-app/api/controller"
+	"github.com/keitatwr/task-management-app/internal/security"
+	"github.com/keitatwr/task-management-app/internal/session"
+	"github.com/keitatwr/task-management-app/repository"
+	"github.com/keitatwr/task-management-app/usecase"
 	"gorm.io/gorm"
 )
 

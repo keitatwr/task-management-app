@@ -9,8 +9,8 @@ import (
 	"time"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
-	"github.com/keitatwr/todo-app/domain"
-	"github.com/keitatwr/todo-app/repository"
+	"github.com/keitatwr/task-management-app/domain"
+	"github.com/keitatwr/task-management-app/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
