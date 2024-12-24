@@ -9,6 +9,8 @@ import (
 	"gorm.io/gorm"
 )
 
+var GetTxFunc = GetTx
+
 type taskRepository struct {
 	db *gorm.DB
 }
@@ -20,7 +22,7 @@ func NewTaskRepository(db *gorm.DB) domain.TaskRepository {
 }
 
 func (r *taskRepository) Create(ctx context.Context, task *domain.Task) (int, error) {
-	tx, ok := GetTx(ctx)
+	tx, ok := GetTxFunc(ctx)
 	if !ok {
 		return -1, myerror.ErrTransactionNotFound
 	}
