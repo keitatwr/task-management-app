@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,13 +12,14 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/keitatwr/todo-app/api/route"
-	"github.com/keitatwr/todo-app/bootstrap"
-	"github.com/keitatwr/todo-app/internal/logger"
+	"github.com/keitatwr/task-management-app/api/route"
+	"github.com/keitatwr/task-management-app/bootstrap"
+	"github.com/keitatwr/task-management-app/internal/logger"
 )
 
 const logDir = "log"
 const logFile = "log/app.log"
+const hasStack = false
 
 func main() {
 	// setup logger
@@ -38,22 +38,22 @@ func main() {
 		}
 	}()
 
-	customLogger := logger.NewLogger(logger.ModeDebug, os.Stdout)
-	slog.SetDefault(customLogger)
-	logger.Info(nil, "setup logger")
+	logger.SetupLogger(logger.ModeDebug, hasStack, logfile)
+	logger.AddKey("TraceID")
+	logger.I(nil, "setup logger")
 
-	logger.Info(nil, "loading application...")
+	logger.I(nil, "loading application...")
 	app, err := bootstrap.App()
 	if err != nil {
-		logger.Errorf(nil, "failed to loading application: %v", err)
-		logger.Info(nil, "shutting down...")
+		logger.E(nil, "failed to loading application", err)
+		logger.I(nil, "shutting down...")
 		os.Exit(1)
 	}
 	env := app.Env
 	db := app.Postgres
 	timeout := time.Duration(env.ContextTimeout) * time.Second
 
-	logger.Info(nil, "set up server...")
+	logger.I(nil, "set up server...")
 	gin.SetMode(gin.DebugMode)
 	router := gin.New()
 	route.Setup(timeout, db, router)
@@ -74,24 +74,24 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		logger.Info(nil, "Server is shutting down...")
+		logger.I(nil, "Server is shutting down...")
 		if err := server.Shutdown(ctx); err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
-				logger.Info(nil, "HTTP server Shutdown: timeout")
+				logger.I(nil, "HTTP server Shutdown: timeout")
 			} else {
-				logger.Infof(nil, "HTTP server Shutdown: %v", err)
+				logger.W(nil, "HTTP server Shutdown", err)
 			}
 			close(idleConnsClosed)
 			return
 		}
 
-		logger.Info(nil, "Server is shut down")
+		logger.I(nil, "Server is shut down")
 		close(idleConnsClosed)
 	}()
 
-	logger.Infof(nil, "Server is running on %s", env.ServerAddress)
+	logger.I(nil, fmt.Sprintf("Server is running on %s", env.ServerAddress))
 	if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-		logger.Errorf(nil, "HTTP server ListenAndServe: %v", err)
+		logger.E(nil, "HTTP server ListenAndServe", err)
 		os.Exit(1)
 	}
 

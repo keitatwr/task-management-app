@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/joho/godotenv"
-	"github.com/keitatwr/todo-app/internal/logger"
 )
 
 type Env struct {
@@ -24,20 +23,20 @@ func NewEnv() (*Env, error) {
 	// current working directory
 	dir, err := os.Getwd()
 	if err != nil {
-		logger.Errorf(nil, "Error getting current working directory: %v", err)
+		// logger.Errorf(nil, "Error getting current working directory: %v", err)
 		return nil, err
 	}
 
-	logger.Info(nil, "loading .env")
+	// logger.Info(nil, "loading .env")
 	err = godotenv.Load(fmt.Sprintf("%s/.env", dir))
 	if err != nil {
-		logger.Errorf(nil, "Error loading .env file: %v", err)
+		// logger.Errorf(nil, "Error loading .env file: %v", err)
 		return nil, err
 	}
 
 	timeout, err := strToInt(os.Getenv("CONTEXT_TIMEOUT"))
 	if err != nil {
-		logger.Errorf(nil, "Error converting string to int: %v", err)
+		// logger.Errorf(nil, "Error converting string to int: %v", err)
 		return nil, err
 	}
 
@@ -56,7 +55,7 @@ func NewEnv() (*Env, error) {
 func strToInt(s string) (int, error) {
 	i, err := strconv.Atoi(s)
 	if err != nil {
-		logger.Errorf(nil, fmt.Sprintf("Error converting string to int: %v"), err)
+		// logger.Errorf(nil, fmt.Sprintf("Error converting string to int: %v"), err)
 		return 0, err
 	}
 	return i, nil
