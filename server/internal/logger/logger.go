@@ -6,7 +6,17 @@ import (
 	"io"
 	"log/slog"
 	"runtime"
+	"strings"
 	"time"
+)
+
+const (
+	MaxDepth = 50
+	Skip     = 5
+)
+
+var (
+	keys = []string{}
 )
 
 type mode int
@@ -16,15 +26,23 @@ const (
 	ModeDebug
 )
 
-var keys = []string{"TraceID"}
-
 type MyLogHandler struct {
 	slog.Handler
+	hasStack bool
 }
 
 var _ slog.Handler = &MyLogHandler{}
 
+func AddKey(newkeys ...string) {
+	keys = append(keys, newkeys...)
+}
+
 func (h *MyLogHandler) Handle(ctx context.Context, r slog.Record) error {
+	if h.hasStack {
+		stackInfo := slog.Any("stackTrace", stackTrace(getStack()))
+		r.Add(stackInfo)
+	}
+
 	if ctx != nil {
 		for _, key := range keys {
 			if v := ctx.Value(key); v != nil {
@@ -35,7 +53,7 @@ func (h *MyLogHandler) Handle(ctx context.Context, r slog.Record) error {
 	return h.Handler.Handle(ctx, r)
 }
 
-func NewLogger(mode mode, output io.Writer) *slog.Logger {
+func NewLogger(mode mode, hasStack bool, output io.Writer) *slog.Logger {
 	var logLevel slog.Level
 	switch mode {
 	case ModeDebug:
@@ -43,69 +61,106 @@ func NewLogger(mode mode, output io.Writer) *slog.Logger {
 	default:
 		logLevel = slog.LevelInfo
 	}
-	return slog.New(&MyLogHandler{slog.NewJSONHandler(output, &slog.HandlerOptions{
-		Level:     logLevel,
-		AddSource: true,
-	})})
+	return slog.New(&MyLogHandler{
+		Handler: slog.NewJSONHandler(output, &slog.HandlerOptions{
+			Level:     logLevel,
+			AddSource: false,
+		}),
+		hasStack: hasStack})
 }
 
-func Info(ctx context.Context, msg string, args ...any) {
-	log(ctx, slog.LevelInfo, msg, args...)
+func SetupLogger(mode mode, hasStack bool, output io.Writer) {
+	customLogger := NewLogger(mode, hasStack, output)
+	slog.SetDefault(customLogger)
 }
 
-func Infof(ctx context.Context, format string, args ...any) {
-	logf(ctx, slog.LevelInfo, format, args...)
+func I(ctx context.Context, msg string, args ...any) {
+	log(ctx, slog.LevelInfo, msg, nil, args...)
 }
 
-func Debug(ctx context.Context, msg string, args ...any) {
-	log(ctx, slog.LevelDebug, msg, args...)
+func D(ctx context.Context, msg string, args ...any) {
+	log(ctx, slog.LevelDebug, msg, nil, args...)
 }
 
-func Debugf(ctx context.Context, format string, args ...any) {
-	logf(ctx, slog.LevelDebug, format, args...)
+func E(ctx context.Context, msg string, err error, args ...any) {
+	log(ctx, slog.LevelError, msg, err, args...)
 }
 
-func Error(ctx context.Context, msg string, args ...any) {
-	log(ctx, slog.LevelError, msg, args...)
+func W(ctx context.Context, msg string, err error, args ...any) {
+	log(ctx, slog.LevelWarn, msg, err, args...)
 }
 
-func Errorf(ctx context.Context, format string, args ...any) {
-	logf(ctx, slog.LevelError, format, args...)
-}
-
-func Warn(ctx context.Context, msg string, args ...any) {
-	log(ctx, slog.LevelWarn, msg, args...)
-}
-
-func Warnf(ctx context.Context, format string, args ...any) {
-	logf(ctx, slog.LevelWarn, format, args...)
-}
-
-func log(ctx context.Context, level slog.Level, msg string, args ...any) {
-	logCommon(ctx, level, msg, false, args...)
-}
-
-func logf(ctx context.Context, level slog.Level, format string, args ...any) {
-	logCommon(ctx, level, format, true, args...)
-}
-
-func logCommon(ctx context.Context, level slog.Level, msg string, isFormat bool, args ...any) {
+func log(ctx context.Context, level slog.Level, msg string, err error, args ...any) {
 	logger := slog.Default()
 	if !logger.Enabled(ctx, level) {
 		return
 	}
 
-	var pcs [1]uintptr
-	// skip 3 frames [Callers, Info|Debug|Error|Warn, logCommon]
-	runtime.Callers(3, pcs[:])
+	stack := make([]uintptr, MaxDepth)
 
 	var r slog.Record
-	if isFormat {
-		r = slog.NewRecord(time.Now(), level, fmt.Sprintf(msg, args...), pcs[0])
-	} else {
-		r = slog.NewRecord(time.Now(), level, msg, pcs[0])
-		r.Add(args...)
+	r = slog.NewRecord(time.Now(), level, msg, stack[0])
+
+	if err != nil {
+		var errInfo slog.Attr
+		// error info
+		errInfo = slog.Any("error", parseErrorString(err.Error()))
+		args = append(args, errInfo)
 	}
 
+	r.Add(args...)
+
 	_ = logger.Handler().Handle(ctx, r)
+}
+
+func getStack() []uintptr {
+	stack := make([]uintptr, 50)
+	length := runtime.Callers(Skip, stack)
+	return stack[:length]
+}
+
+func stackTrace(stack []uintptr) []map[string]interface{} {
+	frames := runtime.CallersFrames(stack)
+	res := make([]map[string]interface{}, 0)
+	for {
+		frame, more := frames.Next()
+		res = append(res, map[string]interface{}{
+			"file":     frame.File,
+			"line":     frame.Line,
+			"function": frame.Function,
+		})
+
+		if !more {
+			break
+		}
+	}
+	return res
+}
+func parseErrorString(input string) []slog.Attr {
+	parts := strings.Split(input, ", ")
+	// ここが要検討
+	// エラーメッセージが1つの場合は、エラーメッセージをそのまま返す
+	if len(parts) == 1 {
+		return []slog.Attr{slog.String("message", input)}
+	}
+
+	result := make([]slog.Attr, 0, len(parts))
+
+	for _, part := range parts {
+		kv := strings.SplitN(part, ": ", 2)
+		if len(kv) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(kv[0])
+		value := strings.Trim(kv[1], `"`)
+		if key == "code" {
+			var code int
+			fmt.Sscanf(value, "%d", &code)
+			result = append(result, slog.Int(key, code))
+		} else {
+			result = append(result, slog.String(key, value))
+		}
+	}
+
+	return result
 }
