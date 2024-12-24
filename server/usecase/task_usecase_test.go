@@ -23,7 +23,7 @@ func getMockTaskPermissionRepository(mockCtrl *gomock.Controller) *mock.MockTask
 	return mock.NewMockTaskPermissionRepository(mockCtrl)
 }
 
-var AnyTime domain.DateOnly
+var AnyDate domain.DateOnly
 
 func TestCreateTask(t *testing.T) {
 	type args struct {
@@ -46,14 +46,14 @@ func TestCreateTask(t *testing.T) {
 				title:       "test title",
 				description: "test description",
 				userID:      1,
-				dueDate:     AnyTime,
+				dueDate:     AnyDate,
 				setupMockTaskRepo: func(mockTaskRepo *mock.MockTaskRepository) {
 					mockTaskRepo.EXPECT().Create(context.TODO(), &domain.Task{
 						Title:       "test title",
 						Description: "test description",
 						Completed:   false,
 						CreatedBy:   1,
-						DueDate:     AnyTime,
+						DueDate:     AnyDate,
 					}).Return(1, nil)
 				},
 				setupMockTaskPermissionRepo: func(mockTaskPermissionRepo *mock.MockTaskPermissionRepository) {
@@ -73,14 +73,14 @@ func TestCreateTask(t *testing.T) {
 				title:       "test title",
 				description: "test description",
 				userID:      1,
-				dueDate:     AnyTime,
+				dueDate:     AnyDate,
 				setupMockTaskRepo: func(mockTaskRepo *mock.MockTaskRepository) {
 					mockTaskRepo.EXPECT().Create(context.TODO(), &domain.Task{
 						Title:       "test title",
 						Description: "test description",
 						Completed:   false,
 						CreatedBy:   1,
-						DueDate:     AnyTime,
+						DueDate:     AnyDate,
 					}).Return(1, myerror.ErrTransactionNotFound)
 				},
 				setupMockTaskPermissionRepo: nil,
@@ -93,14 +93,14 @@ func TestCreateTask(t *testing.T) {
 				title:       "test title",
 				description: "test description",
 				userID:      1,
-				dueDate:     AnyTime,
+				dueDate:     AnyDate,
 				setupMockTaskRepo: func(mockTaskRepo *mock.MockTaskRepository) {
 					mockTaskRepo.EXPECT().Create(context.TODO(), &domain.Task{
 						Title:       "test title",
 						Description: "test description",
 						Completed:   false,
 						CreatedBy:   1,
-						DueDate:     AnyTime,
+						DueDate:     AnyDate,
 					}).Return(0, myerror.ErrQueryFailed)
 				},
 				setupMockTaskPermissionRepo: nil,
@@ -113,14 +113,14 @@ func TestCreateTask(t *testing.T) {
 				title:       "test title",
 				description: "test description",
 				userID:      1,
-				dueDate:     AnyTime,
+				dueDate:     AnyDate,
 				setupMockTaskRepo: func(mockTaskRepo *mock.MockTaskRepository) {
 					mockTaskRepo.EXPECT().Create(context.TODO(), &domain.Task{
 						Title:       "test title",
 						Description: "test description",
 						Completed:   false,
 						CreatedBy:   1,
-						DueDate:     AnyTime,
+						DueDate:     AnyDate,
 					}).Return(1, nil)
 				},
 				setupMockTaskPermissionRepo: func(mockTaskPermissionRepo *mock.MockTaskPermissionRepository) {
@@ -407,13 +407,13 @@ func TestUpdateTask(t *testing.T) {
 				title:       "test title",
 				description: "test description",
 				userID:      1,
-				dueDate:     AnyTime,
+				dueDate:     AnyDate,
 				setupMockTaskRepo: func(mockTaskRepo *mock.MockTaskRepository) {
 					mockTaskRepo.EXPECT().Update(context.TODO(), &domain.Task{
 						ID:          1,
 						Title:       "test title",
 						Description: "test description",
-						DueDate:     AnyTime,
+						DueDate:     AnyDate,
 					}).Return(nil)
 				},
 				setupMockTaskPermissionRepo: func(mockTaskPermissionRepo *mock.MockTaskPermissionRepository) {
@@ -430,7 +430,7 @@ func TestUpdateTask(t *testing.T) {
 				title:             "test title",
 				description:       "test description",
 				userID:            1,
-				dueDate:           AnyTime,
+				dueDate:           AnyDate,
 				setupMockTaskRepo: nil,
 				setupMockTaskPermissionRepo: func(mockTaskPermissionRepo *mock.MockTaskPermissionRepository) {
 					mockTaskPermissionRepo.EXPECT().FetchPermissionByTaskID(context.TODO(), 1, 1).
@@ -446,7 +446,7 @@ func TestUpdateTask(t *testing.T) {
 				title:             "test title",
 				description:       "test description",
 				userID:            1,
-				dueDate:           AnyTime,
+				dueDate:           AnyDate,
 				setupMockTaskRepo: nil,
 				setupMockTaskPermissionRepo: func(mockTaskPermissionRepo *mock.MockTaskPermissionRepository) {
 					mockTaskPermissionRepo.EXPECT().FetchPermissionByTaskID(context.TODO(), 1, 1).
@@ -462,13 +462,13 @@ func TestUpdateTask(t *testing.T) {
 				title:       "test title",
 				description: "test description",
 				userID:      1,
-				dueDate:     AnyTime,
+				dueDate:     AnyDate,
 				setupMockTaskRepo: func(mockTaskRepo *mock.MockTaskRepository) {
 					mockTaskRepo.EXPECT().Update(context.TODO(), &domain.Task{
 						ID:          1,
 						Title:       "test title",
 						Description: "test description",
-						DueDate:     AnyTime,
+						DueDate:     AnyDate,
 					}).Return(myerror.ErrQueryFailed)
 				},
 				setupMockTaskPermissionRepo: func(mockTaskPermissionRepo *mock.MockTaskPermissionRepository) {
