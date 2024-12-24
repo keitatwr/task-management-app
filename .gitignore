@@ -3,3 +3,5 @@ init/*
 tmp/*
 client/*
 *.log
+gen_mock.sh
+Makefile
