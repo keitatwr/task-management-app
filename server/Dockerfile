@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y tzdata
 ENV TZ=Asia/Tokyo
 
 RUN mkdir -p /go/github.com/keitatwr/
-WORKDIR /go/github.com/keitatwr/todo-app
+WORKDIR /go/github.com/keitatwr/task-management-app
 
 # go.mod, go.sumをコピー
 COPY go.mod go.sum ./
@@ -23,6 +23,9 @@ COPY . .
 # airをインストール
 RUN go install github.com/air-verse/air@latest
 
+# mockgenをインストール
+RUN go install go.uber.org/mock/mockgen@latest
+
 CMD ["air", "-c", ".air.toml"]
 
 # テスト用ステージ
@@ -31,7 +34,7 @@ FROM golang:${GO_VERSION}-bullseye AS test
 RUN apt-get update && apt-get install -y tzdata
 ENV TZ=Asia/Tokyo
 
-WORKDIR /go/github.com/keitatwr/todo-app
+WORKDIR /go/github.com/keitatwr/task-management-app
 
 # go.mod, go.sumをコピー
 COPY go.mod go.sum ./

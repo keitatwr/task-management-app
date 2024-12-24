@@ -10,7 +10,7 @@ services:
       - "8080:8080"
     tty: true
     volumes:
-      - ./server/:/go/github.com/keitatwr/todo-app
+      - ./server/:/go/github.com/keitatwr/task-management-app
     depends_on:
       - "postgres"
 
