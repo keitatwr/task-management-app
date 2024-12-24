@@ -17,6 +17,17 @@ import (
 	"gorm.io/gorm"
 )
 
+type AnyTime struct{}
+
+func (a AnyTime) Match(v driver.Value) bool {
+	_, ok := v.(time.Time)
+	return ok
+}
+
+var anyTime time.Time
+
+var AnyDate domain.DateOnly
+
 func getDbMock(t *testing.T) (*gorm.DB, sqlmock.Sqlmock, func()) {
 	// SQLMockの初期化
 	db, mock, err := sqlmock.New()
@@ -34,15 +45,6 @@ func getDbMock(t *testing.T) (*gorm.DB, sqlmock.Sqlmock, func()) {
 
 	return gdb, mock, tearDown
 }
-
-type AnyTime struct{}
-
-func (a AnyTime) Match(v driver.Value) bool {
-	_, ok := v.(time.Time)
-	return ok
-}
-
-var AnyDate domain.DateOnly
 
 func TestCreateTask(t *testing.T) {
 	tests := []struct {
@@ -143,6 +145,73 @@ func TestCreateTask(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, 1, id)
+			}
+
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("there were unfulfilled expectations: %s", err)
+			}
+		})
+	}
+}
+
+func TestFetchAllTaskByTaskID(t *testing.T) {
+	// now := time.Now()
+	type args struct {
+		taskIDs []int
+		query   string
+		mockRow [][]driver.Value
+	}
+	tests := []struct {
+		title     string
+		args      args
+		wantTasks []domain.Task
+		wantError error
+	}{
+		{
+			"success",
+			args{
+				taskIDs: []int{1, 2},
+				query:   `SELECT * FROM "tasks" WHERE id IN ($1,$2)`,
+				mockRow: [][]driver.Value{
+					[]driver.Value{1, "test", "test", false, 1, AnyDate, anyTime},
+					[]driver.Value{2, "test", "test", false, 1, AnyDate, anyTime},
+				},
+			},
+			[]domain.Task{
+				{ID: 1, Title: "test", Description: "test", Completed: false, CreatedBy: 1, DueDate: AnyDate, CreatedAt: anyTime},
+				{ID: 2, Title: "test", Description: "test", Completed: false, CreatedBy: 1, DueDate: AnyDate, CreatedAt: anyTime},
+			},
+			nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.title, func(t *testing.T) {
+			// mock
+			db, mock, tearDown := getDbMock(t)
+			defer tearDown()
+
+			mock.MatchExpectationsInOrder(false)
+			rows := sqlmock.NewRows([]string{"id", "title", "description", "completed", "created_by", "due_date", "created_at"})
+			for _, row := range tt.args.mockRow {
+				rows.AddRow(row...)
+			}
+			mock.ExpectQuery(regexp.QuoteMeta(tt.args.query)).
+				WithArgs(1, 2).
+				WillReturnRows(rows)
+
+			// run
+			ctx := context.TODO()
+			r := repository.NewTaskRepository(db)
+			tasks, err := r.FetchAllTaskByTaskID(ctx, tt.args.taskIDs...)
+
+			// assert
+			if tt.wantError != nil {
+				assert.Error(t, err)
+				assert.Nil(t, tasks)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantTasks, tasks)
 			}
 
 			if err := mock.ExpectationsWereMet(); err != nil {
