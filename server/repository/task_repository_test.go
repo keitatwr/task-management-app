@@ -3,6 +3,7 @@ package repository_test
 import (
 	"context"
 	"database/sql/driver"
+	"fmt"
 	"regexp"
 	"testing"
 	"time"
@@ -113,23 +114,24 @@ func TestCreateTask(t *testing.T) {
 			db, mock, tearDown := getDbMock(t)
 			defer tearDown()
 
-			if tt.wantError != myerror.ErrTransactionNotFound {
+			switch tt.wantError {
+			case myerror.ErrTransactionNotFound:
+			case myerror.ErrQueryFailed:
 				mock.MatchExpectationsInOrder(false)
 				mock.ExpectBegin()
-				if tt.wantError != nil {
-					mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
-						WithArgs(tt.task.Title, tt.task.Description, tt.task.Completed,
-							tt.task.CreatedBy, tt.task.DueDate, AnyTime{}).
-						WillReturnError(tt.wantError)
-					mock.ExpectRollback()
-
-				} else {
-					mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
-						WithArgs(tt.task.Title, tt.task.Description, tt.task.Completed,
-							tt.task.CreatedBy, tt.task.DueDate, AnyTime{}).
-						WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
-					mock.ExpectCommit()
-				}
+				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
+					WithArgs(tt.task.Title, tt.task.Description, tt.task.Completed,
+						tt.task.CreatedBy, tt.task.DueDate, AnyTime{}).
+					WillReturnError(tt.wantError)
+				mock.ExpectRollback()
+			default:
+				mock.MatchExpectationsInOrder(false)
+				mock.ExpectBegin()
+				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
+					WithArgs(tt.task.Title, tt.task.Description, tt.task.Completed,
+						tt.task.CreatedBy, tt.task.DueDate, AnyTime{}).
+					WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+				mock.ExpectCommit()
 			}
 
 			// run
@@ -183,6 +185,26 @@ func TestFetchAllTaskByTaskID(t *testing.T) {
 			},
 			nil,
 		},
+		{
+			"tasks not found",
+			args{
+				taskIDs: []int{1, 2},
+				query:   `SELECT * FROM "tasks" WHERE id IN ($1,$2)`,
+				mockRow: nil,
+			},
+			nil,
+			myerror.ErrTaskNotFound,
+		},
+		{
+			"query failed",
+			args{
+				taskIDs: []int{1, 2},
+				query:   `SELECT * FROM "tasks" WHERE id IN ($1,$2)`,
+				mockRow: nil,
+			},
+			nil,
+			myerror.ErrQueryFailed,
+		},
 	}
 
 	for _, tt := range tests {
@@ -192,13 +214,25 @@ func TestFetchAllTaskByTaskID(t *testing.T) {
 			defer tearDown()
 
 			mock.MatchExpectationsInOrder(false)
-			rows := sqlmock.NewRows([]string{"id", "title", "description", "completed", "created_by", "due_date", "created_at"})
-			for _, row := range tt.args.mockRow {
-				rows.AddRow(row...)
+
+			switch tt.wantError {
+			case myerror.ErrTaskNotFound:
+				mock.ExpectQuery(regexp.QuoteMeta(tt.args.query)).
+					WithArgs(1, 2).
+					WillReturnError(gorm.ErrRecordNotFound)
+			case myerror.ErrQueryFailed:
+				mock.ExpectQuery(regexp.QuoteMeta(tt.args.query)).
+					WithArgs(1, 2).
+					WillReturnError(fmt.Errorf("failed to fetch tasks"))
+			default:
+				rows := sqlmock.NewRows([]string{"id", "title", "description", "completed", "created_by", "due_date", "created_at"})
+				for _, row := range tt.args.mockRow {
+					rows.AddRow(row...)
+				}
+				mock.ExpectQuery(regexp.QuoteMeta(tt.args.query)).
+					WithArgs(1, 2).
+					WillReturnRows(rows)
 			}
-			mock.ExpectQuery(regexp.QuoteMeta(tt.args.query)).
-				WithArgs(1, 2).
-				WillReturnRows(rows)
 
 			// run
 			ctx := context.TODO()
@@ -209,6 +243,7 @@ func TestFetchAllTaskByTaskID(t *testing.T) {
 			if tt.wantError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, tasks)
+				assert.Equal(t, tt.wantError, err)
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.wantTasks, tasks)
@@ -221,171 +256,98 @@ func TestFetchAllTaskByTaskID(t *testing.T) {
 	}
 }
 
-// func TestGetTodoByID(t *testing.T) {
-// 	now := time.Now()
-// 	coloumns := []string{"id", "title", "description", "completed",
-// 		"user_id", "created_at", "updated_at"}
-// 	tests := []struct {
-// 		title         string
-// 		id            int
-// 		query         string
-// 		mockRow       []driver.Value
-// 		expected      *domain.Task
-// 		expectedError bool
-// 	}{
-// 		{
-// 			"get todo by id successfully",
-// 			1,
-// 			`SELECT * FROM "todos" WHERE id = $1 LIMIT $2`,
-// 			[]driver.Value{1, "test", "test", false, 1, now, now},
-// 			&domain.Task{
-// 				ID:          1,
-// 				Title:       "test",
-// 				Description: "test",
-// 				Completed:   false,
-// 				UserID:      1,
-// 				CreatedAt:   now,
-// 				UpdatedAt:   now,
-// 			},
-// 			false,
-// 		},
-// 		{
-// 			"get todo by id with error",
-// 			1,
-// 			`SELECT * FROM "todos" WHERE id = $1 LIMIT $2`,
-// 			nil,
-// 			nil,
-// 			true,
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.title, func(t *testing.T) {
-// 			// mock
-// 			db, mock, tearDown := GetDbMock(t)
-// 			defer tearDown()
-// 			mock.MatchExpectationsInOrder(false)
-// 			if tt.expectedError {
-// 				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
-// 					WithArgs(tt.id, 1).
-// 					WillReturnError(fmt.Errorf("get todo error"))
-// 			} else {
-// 				rows := sqlmock.NewRows(coloumns).AddRow(tt.mockRow...)
-// 				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
-// 					WithArgs(tt.id, 1).
-// 					WillReturnRows(rows)
-// 			}
+func TestFetchTaskByTaskID(t *testing.T) {
+	// now := time.Now()
+	type args struct {
+		taskID  int
+		query   string
+		mockRow []driver.Value
+	}
+	tests := []struct {
+		title     string
+		args      args
+		wantTask  *domain.Task
+		wantError error
+	}{
+		{
+			"success",
+			args{
+				taskID:  1,
+				query:   `SELECT * FROM "tasks" WHERE id = $1 LIMIT $2`,
+				mockRow: []driver.Value{1, "test", "test", false, 1, AnyDate, anyTime},
+			},
+			&domain.Task{ID: 1, Title: "test", Description: "test", Completed: false, CreatedBy: 1, DueDate: AnyDate, CreatedAt: anyTime},
+			nil,
+		},
+		{
+			"task not found",
+			args{
+				taskID:  1,
+				query:   `SELECT * FROM "tasks" WHERE id = $1 LIMIT $2`,
+				mockRow: nil,
+			},
+			nil,
+			myerror.ErrTaskNotFound,
+		},
+		{
+			"query failed",
+			args{
+				taskID:  1,
+				query:   `SELECT * FROM "tasks" WHERE id = $1 LIMIT $2`,
+				mockRow: nil,
+			},
+			nil,
+			myerror.ErrQueryFailed,
+		},
+	}
 
-// 			// run
-// 			r := repository.NewTodoRepository(db)
-// 			todo, err := r.GetTodoByID(context.TODO(), tt.id)
+	for _, tt := range tests {
+		t.Run(tt.title, func(t *testing.T) {
+			// mock
+			db, mock, tearDown := getDbMock(t)
+			defer tearDown()
 
-// 			// assert
-// 			if tt.expectedError {
-// 				assert.Error(t, err)
-// 				assert.Equal(t, tt.expected, todo)
-// 			} else {
-// 				assert.NoError(t, err)
-// 				assert.Equal(t, tt.expected, todo)
-// 			}
+			mock.MatchExpectationsInOrder(false)
 
-// 			if err := mock.ExpectationsWereMet(); err != nil {
-// 				t.Errorf("there were unfulfilled expectations: %s", err)
-// 			}
-// 		})
-// 	}
-// }
+			switch tt.wantError {
+			case myerror.ErrTaskNotFound:
+				mock.ExpectQuery(regexp.QuoteMeta(tt.args.query)).
+					WithArgs(tt.args.taskID, 1).
+					WillReturnError(gorm.ErrRecordNotFound)
+			case myerror.ErrQueryFailed:
+				mock.ExpectQuery(regexp.QuoteMeta(tt.args.query)).
+					WithArgs(tt.args.taskID, 1).
+					WillReturnError(fmt.Errorf("failed to fetch task"))
+			default:
+				rows := sqlmock.NewRows([]string{"id", "title", "description", "completed", "created_by", "due_date", "created_at"}).
+					AddRow(tt.args.mockRow...)
+				mock.ExpectQuery(regexp.QuoteMeta(tt.args.query)).
+					WithArgs(tt.args.taskID, 1).
+					WillReturnRows(rows)
+			}
 
-// func TestGetAllTodoByUserID(t *testing.T) {
-// 	now := time.Now()
-// 	columns := []string{"id", "title", "description", "completed",
-// 		"user_id", "created_at", "updated_at"}
-// 	tests := []struct {
-// 		title         string
-// 		id            int
-// 		query         string
-// 		mockRow       [][]driver.Value
-// 		expected      []domain.Task
-// 		expectedError bool
-// 	}{
-// 		{
-// 			"get all todo by user id successfully",
-// 			1,
-// 			`SELECT * FROM "todos" WHERE user_id = $1`,
-// 			[][]driver.Value{
-// 				[]driver.Value{1, "test", "test", false, 1, now, now},
-// 				[]driver.Value{2, "test", "test", false, 1, now, now},
-// 			},
-// 			[]domain.Task{
-// 				{
-// 					ID:          1,
-// 					Title:       "test",
-// 					Description: "test",
-// 					Completed:   false,
-// 					UserID:      1,
-// 					CreatedAt:   now,
-// 					UpdatedAt:   now,
-// 				},
-// 				{
-// 					ID:          2,
-// 					Title:       "test",
-// 					Description: "test",
-// 					Completed:   false,
-// 					UserID:      1,
-// 					CreatedAt:   now,
-// 					UpdatedAt:   now,
-// 				},
-// 			},
-// 			false,
-// 		},
-// 		{
-// 			"get all todo by user id with error",
-// 			1,
-// 			`SELECT * FROM "todos" WHERE user_id = $1`,
-// 			nil,
-// 			nil,
-// 			true,
-// 		},
-// 	}
+			// run
+			ctx := context.TODO()
+			r := repository.NewTaskRepository(db)
+			task, err := r.FetchTaskByTaskID(ctx, tt.args.taskID)
 
-// 	for _, tt := range tests {
-// 		t.Run(tt.title, func(t *testing.T) {
-// 			// mock
-// 			db, mock, tearDown := GetDbMock(t)
-// 			defer tearDown()
-// 			mock.MatchExpectationsInOrder(false)
-// 			if tt.expectedError {
-// 				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
-// 					WithArgs(tt.id).
-// 					WillReturnError(fmt.Errorf("get all todo error"))
-// 			} else {
-// 				rows := sqlmock.NewRows(columns)
-// 				for _, row := range tt.mockRow {
-// 					rows.AddRow(row...)
-// 				}
-// 				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
-// 					WithArgs(tt.id).
-// 					WillReturnRows(rows)
-// 			}
+			// assert
+			if tt.wantError != nil {
+				assert.Error(t, err)
+				assert.Nil(t, task)
+				assert.Equal(t, tt.wantError, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantTask, task)
+			}
 
-// 			// run
-// 			r := repository.NewTodoRepository(db)
-// 			todos, err := r.GetAllTodoByUserID(context.TODO(), tt.id)
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("there were unfulfilled expectations: %s", err)
+			}
+		})
 
-// 			// assert
-// 			if tt.expectedError {
-// 				assert.Error(t, err)
-// 				assert.Equal(t, tt.expected, todos)
-// 			} else {
-// 				assert.NoError(t, err)
-// 				assert.Equal(t, tt.expected, todos)
-// 			}
-
-// 			if err := mock.ExpectationsWereMet(); err != nil {
-// 				t.Errorf("there were unfulfilled expectations: %s", err)
-// 			}
-// 		})
-// 	}
-// }
+	}
+}
 
 // func TestUpdateTodo(t *testing.T) {
 // 	tests := []struct {
