@@ -120,6 +120,31 @@ func (tc *TaskController) Update(c *gin.Context) {
 	response.JSON(c, http.StatusOK, "updated")
 }
 
+func (tc *TaskController) Delete(c *gin.Context) {
+	// get id from path
+	var request domain.TaskFetchRequest
+	if err := c.ShouldBindUri(&request); err != nil {
+		tc.handleValidationError(c, err)
+		return
+	}
+
+	// get user from context
+	user := middleware.GetUserContext(c)
+	if user == nil {
+		err := myerror.ErrContextUserNotFound.WithDescription("user not found in context")
+		logger.W(c.Request.Context(), "occurred context error", err)
+		response.Error(c, http.StatusUnauthorized, "unauthorized", err)
+		return
+	}
+
+	// delete task
+	if err := tc.TaskUsecase.Delete(c, request.ID, user.ID); err != nil {
+		tc.handleDeleteTaskError(c, err)
+		return
+	}
+	response.JSON(c, http.StatusOK, "deleted")
+}
+
 func (tc *TaskController) handleValidationError(c *gin.Context, err error) {
 	var vErr *myerror.AppError
 
@@ -233,6 +258,11 @@ func (tc *TaskController) handleUpdateTaskError(c *gin.Context, err error) {
 			logger.E(ctx, "occurred update task error", err)
 			response.Error(c, http.StatusInternalServerError, "failed to update task", err)
 
+		case errors.Is(appErr, myerror.ErrPermissionNotFound):
+			err := appErr.WithDescription("you don't have permission to access task")
+			logger.W(ctx, "occurred update task error", err)
+			response.Error(c, http.StatusForbidden, "failed to update task", err)
+
 		case errors.Is(appErr, myerror.ErrPermissionDenied):
 			err := appErr.WithDescription("permission denied")
 			logger.W(ctx, "occurred update task error", err)
@@ -245,5 +275,36 @@ func (tc *TaskController) handleUpdateTaskError(c *gin.Context, err error) {
 	} else {
 		logger.E(ctx, "unexpected error occurred", err)
 		response.Error(c, http.StatusInternalServerError, "failed to update task", err)
+	}
+}
+
+func (tc *TaskController) handleDeleteTaskError(c *gin.Context, err error) {
+	ctx := c.Request.Context()
+
+	var appErr *myerror.AppError
+	if errors.As(err, &appErr) {
+		switch {
+		case errors.Is(appErr, myerror.ErrQueryFailed):
+			err := appErr.WithDescription("failed to execute query")
+			logger.E(ctx, "occurred delete task error", err)
+			response.Error(c, http.StatusInternalServerError, "failed to delete task", err)
+
+		case errors.Is(appErr, myerror.ErrPermissionNotFound):
+			err := appErr.WithDescription("you don't have permission to access task")
+			logger.W(ctx, "occurred delete task error", err)
+			response.Error(c, http.StatusForbidden, "failed to delete task", err)
+
+		case errors.Is(appErr, myerror.ErrPermissionDenied):
+			err := appErr.WithDescription("permission denied")
+			logger.W(ctx, "occurred delete task error", err)
+			response.Error(c, http.StatusForbidden, "failed to delete task", err)
+
+		default:
+			logger.E(ctx, "occurred delete task error", appErr)
+			response.Error(c, http.StatusInternalServerError, "failed to delete task", appErr)
+		}
+	} else {
+		logger.E(ctx, "unexpected error occurred", err)
+		response.Error(c, http.StatusInternalServerError, "failed to delete task", err)
 	}
 }
