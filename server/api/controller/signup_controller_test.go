@@ -1,7 +1,6 @@
 package controller_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -9,17 +8,20 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang/mock/gomock"
 	"github.com/keitatwr/task-management-app/api/controller"
 	"github.com/keitatwr/task-management-app/domain"
-	"github.com/keitatwr/task-management-app/tests/mocks"
+	"github.com/keitatwr/task-management-app/internal/myerror"
+	"github.com/keitatwr/task-management-app/internal/security"
+	"github.com/keitatwr/task-management-app/tests/helper"
+	"github.com/keitatwr/task-management-app/tests/mock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 type MockPasswordHasher struct{}
 
 func (mh *MockPasswordHasher) HashPassword(password string) (string, error) {
-	return "$2a$10$wH8K9f8K9f8K9f8K9f8K9u", nil
+	return "xxxxx", nil
 }
 
 type ErrMockPasswordHasher struct{}
@@ -28,163 +30,200 @@ func (emh *ErrMockPasswordHasher) HashPassword(password string) (string, error) 
 	return "", fmt.Errorf("failed to hash password")
 }
 
-func getSignupUsecaseMock(t *testing.T) (*mocks.MockSignupUsecase, func()) {
+func getSignupUsecaseMock(t *testing.T) (*mock.MockSignupUsecase, func()) {
 	ctrl := gomock.NewController(t)
 	teardown := func() {
 		ctrl.Finish()
 	}
-	return mocks.NewMockSignupUsecase(ctrl), teardown
-}
-
-func mockGetUserByEmailForSignup(signupUsecase *mocks.MockSignupUsecase,
-	tt struct {
-		title           string
-		request         domain.SignupRequest
-		expectedStatus  int
-		expectedMessage string
-		expectedError   bool
-		invalidRequest  bool
-		hashError       bool
-		isAlreadyExists bool
-		createUserError bool
-	}) {
-	if tt.isAlreadyExists {
-		signupUsecase.EXPECT().GetUserByEmail(gomock.Any(), tt.request.Email).
-			Return(&domain.User{}, nil)
-	} else {
-		signupUsecase.EXPECT().GetUserByEmail(gomock.Any(), tt.request.Email).
-			Return(nil, fmt.Errorf("user not found"))
-	}
-}
-
-func mockCreateUserForSignup(signupUsecase *mocks.MockSignupUsecase,
-	tt struct {
-		title           string
-		request         domain.SignupRequest
-		expectedStatus  int
-		expectedMessage string
-		expectedError   bool
-		invalidRequest  bool
-		hashError       bool
-		isAlreadyExists bool
-		createUserError bool
-	}) {
-	hashedPassword := "$2a$10$wH8K9f8K9f8K9f8K9f8K9u"
-	if tt.createUserError {
-		signupUsecase.EXPECT().Create(gomock.Any(), tt.request.Name, tt.request.Email, hashedPassword).
-			Return(fmt.Errorf("error creating user"))
-	} else {
-		signupUsecase.EXPECT().Create(gomock.Any(), tt.request.Name, tt.request.Email, hashedPassword).
-			Return(nil)
-	}
+	return mock.NewMockSignupUsecase(ctrl), teardown
 }
 
 func TestSignupController(t *testing.T) {
 	tests := []struct {
-		title           string
-		request         domain.SignupRequest
-		expectedStatus  int
-		expectedMessage string
-		expectedError   bool
-		invalidRequest  bool
-		hashError       bool
-		isAlreadyExists bool
-		createUserError bool
+		title            string
+		request          *http.Request
+		setupMockUsecace func(signupUsecase *mock.MockSignupUsecase)
+		passwordHasher   security.PasswordHasher
+		wantStatus       int
+		wantResponse     interface{}
 	}{
 		{
-			title: "success",
-			request: domain.SignupRequest{
-				Name: "test name", Email: "test@test.co.jp", Password: "secret"},
-			expectedStatus:  http.StatusCreated,
-			expectedMessage: "user created",
+			"success",
+			httptest.NewRequest(http.MethodPost, "/signup", strings.NewReader(`{"name":"test","email":"test@example.com","password":"password"}`)),
+			func(signupUsecase *mock.MockSignupUsecase) {
+				signupUsecase.EXPECT().FetchUserByEmail(gomock.Any(), "test@example.com").
+					Return(nil, myerror.ErrUserNotFound)
+				signupUsecase.EXPECT().Create(gomock.Any(), "test", "test@example.com", "xxxxx").
+					Return(nil)
+			},
+			&MockPasswordHasher{},
+			http.StatusCreated,
+			domain.SuccessResponse{Message: "user created"},
 		},
 		{
-			title:          "unsuccessfully invalid request",
-			request:        domain.SignupRequest{Name: "test name", Email: "test@test.co.jp"},
-			expectedStatus: http.StatusBadRequest,
-			expectedMessage: "Key: 'SignupRequest.Password' Error:" +
-				"Field validation for 'Password' failed on the 'required' tag",
-			expectedError:  true,
-			invalidRequest: true,
+			"validation error one missing field",
+			httptest.NewRequest(http.MethodPost, "/signup", strings.NewReader(`{"nam":"test","email":"test@example.com","password":"password"}`)),
+			nil,
+			nil,
+			http.StatusBadRequest,
+			domain.ErrorResponse{
+				Message: "your request is validation failed",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodeValidtaionFailed),
+						Message:     myerror.ErrMessages[myerror.CodeValidtaionFailed],
+						Description: "missing fields: Name",
+					},
+				},
+			},
 		},
 		{
-			title: "unsuccessfully hash error",
-			request: domain.SignupRequest{Name: "test name", Email: "test@test.co.jp",
-				Password: "secret"},
-			expectedStatus:  http.StatusInternalServerError,
-			expectedMessage: "failed to hash password",
-			expectedError:   true,
-			hashError:       true,
+			"validation error two missing field",
+			httptest.NewRequest(http.MethodPost, "/signup", strings.NewReader(`{"nam":"test","emai":"test@example.com","password":"password"}`)),
+			nil,
+			nil,
+			http.StatusBadRequest,
+			domain.ErrorResponse{
+				Message: "your request is validation failed",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodeValidtaionFailed),
+						Message:     myerror.ErrMessages[myerror.CodeValidtaionFailed],
+						Description: "missing fields: Name, Email",
+					},
+				},
+			},
 		},
 		{
-			title: "unsuccessfully user already exists",
-			request: domain.SignupRequest{Name: "test name", Email: "test@test.co.jp",
-				Password: "secret"},
-			expectedStatus:  http.StatusConflict,
-			expectedMessage: "user with email test@test.co.jp already exists",
-			expectedError:   true,
-			isAlreadyExists: true,
+			"validation error type mismatch",
+			httptest.NewRequest(http.MethodPost, "/signup", strings.NewReader(`{"name":"test","email":"test@example.com","password":123}`)),
+			nil,
+			nil,
+			http.StatusBadRequest,
+			domain.ErrorResponse{
+				Message: "your request is validation failed",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodeValidtaionFailed),
+						Message:     myerror.ErrMessages[myerror.CodeValidtaionFailed],
+						Description: "missing field type: password, expect: string, actual: number",
+					},
+				},
+			},
 		},
 		{
-			title: "unsuccessfully create user error",
-			request: domain.SignupRequest{Name: "test name", Email: "test@test.co.jp",
-				Password: "secret"},
-			expectedStatus:  http.StatusInternalServerError,
-			expectedMessage: "failed to create user: error creating user",
-			expectedError:   true,
-			createUserError: true,
+			"validation error json syntax error",
+			httptest.NewRequest(http.MethodPost, "/signup", strings.NewReader(`{"name":"test,"email":"test@example.com","password":"password"}`)),
+			nil,
+			nil,
+			http.StatusBadRequest,
+			domain.ErrorResponse{
+				Message: "your request is validation failed",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodeValidtaionFailed),
+						Message:     myerror.ErrMessages[myerror.CodeValidtaionFailed],
+						Description: "json syntax error, offset: 16",
+					},
+				},
+			},
+		},
+		{
+			"user already exists",
+			httptest.NewRequest(http.MethodPost, "/signup", strings.NewReader(`{"name":"test","email":"test@example.com","password":"password"}`)),
+			func(signupUsecase *mock.MockSignupUsecase) {
+				signupUsecase.EXPECT().FetchUserByEmail(gomock.Any(), "test@example.com").
+					Return(&domain.User{}, nil)
+			},
+			nil,
+			http.StatusConflict,
+			domain.ErrorResponse{
+				Message: "user already exists",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodeUserAlreadyExists),
+						Message:     myerror.ErrMessages[myerror.CodeUserAlreadyExists],
+						Description: "email 'test@example.com' is already exists",
+					},
+				},
+			},
+		},
+		{
+			"failed to hash password",
+			httptest.NewRequest(http.MethodPost, "/signup", strings.NewReader(`{"name":"test","email":"test@example.com","password":"password"}`)),
+			func(signupUsecase *mock.MockSignupUsecase) {
+				signupUsecase.EXPECT().FetchUserByEmail(gomock.Any(), "test@example.com").
+					Return(nil, myerror.ErrUserNotFound)
+			},
+			&ErrMockPasswordHasher{},
+			http.StatusInternalServerError,
+			domain.ErrorResponse{
+				Message: "failed to hash password",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodeHashPasswordFailed),
+						Message:     myerror.ErrMessages[myerror.CodeHashPasswordFailed],
+						Description: "failed to hash password",
+					},
+				},
+			},
+		},
+		{
+			"failed to create user",
+			httptest.NewRequest(http.MethodPost, "/signup", strings.NewReader(`{"name":"test","email":"test@example.com", "password":"password"}`)),
+			func(signupUsecase *mock.MockSignupUsecase) {
+				signupUsecase.EXPECT().FetchUserByEmail(gomock.Any(), "test@example.com").
+					Return(nil, myerror.ErrUserNotFound)
+				signupUsecase.EXPECT().Create(gomock.Any(), "test", "test@example.com", "xxxxx").
+					Return(myerror.ErrQueryFailed)
+			},
+			&MockPasswordHasher{},
+			http.StatusInternalServerError,
+			domain.ErrorResponse{
+				Message: "failed to create user",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodeQueryFailed),
+						Message:     myerror.ErrMessages[myerror.CodeQueryFailed],
+						Description: "failed to execute query",
+					},
+				},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
 			gin.SetMode(gin.TestMode)
-			// mock
-			signupUsecase, tearDown := getSignupUsecaseMock(t)
-			defer tearDown()
-			w := httptest.NewRecorder()
-			ctx, _ := gin.CreateTestContext(w)
 
-			// mock expectations
-			if !tt.invalidRequest {
-				mockGetUserByEmailForSignup(signupUsecase, tt)
-				if !tt.hashError && !tt.isAlreadyExists {
-					mockCreateUserForSignup(signupUsecase, tt)
-				}
+			// mock
+			signupUsecase, teardown := getSignupUsecaseMock(t)
+			defer teardown()
+
+			if tt.setupMockUsecace != nil {
+				tt.setupMockUsecace(signupUsecase)
 			}
 
+			response := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(response)
+
 			// request
-			ctx.Request = httptest.NewRequest("POST", "/signup", strings.NewReader(
-				fmt.Sprintf(`{"name":"%s","email":"%s","password":"%s"}`,
-					tt.request.Name, tt.request.Email, tt.request.Password)))
-			ctx.Request.Header.Set("Content-Type", "application/json")
+			ctx.Request = tt.request
 
 			// controller
-			signupController := controller.SignupController{SignupUsecase: signupUsecase}
-			if tt.hashError {
-				signupController.PasswordHasher = &ErrMockPasswordHasher{}
-			} else {
-				signupController.PasswordHasher = &MockPasswordHasher{}
+			signupController := controller.SignupController{
+				SignupUsecase:  signupUsecase,
+				PasswordHasher: tt.passwordHasher,
 			}
 
 			// run
 			r := gin.Default()
 			r.POST("/signup", signupController.Signup)
-			r.ServeHTTP(w, ctx.Request)
+			r.ServeHTTP(response, ctx.Request)
 
 			// assert
-			assert.Equal(t, tt.expectedStatus, w.Code)
-			if tt.expectedError {
-				var response domain.ErrorResponse
-				err := json.Unmarshal(w.Body.Bytes(), &response)
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedMessage, response.Message)
-			} else {
-				var response domain.SuccessResponse
-				err := json.Unmarshal(w.Body.Bytes(), &response)
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedMessage, response.Message)
-			}
+			assert.Equal(t, tt.wantStatus, response.Code)
+			helper.AssertResponse(t, tt.wantStatus, tt.wantResponse, response)
 		})
 	}
 }
