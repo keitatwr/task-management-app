@@ -2,20 +2,17 @@ package usecase
 
 import (
 	"context"
-	"time"
 
 	"github.com/keitatwr/task-management-app/domain"
 )
 
 type signupUsecase struct {
 	userRepository domain.UserRepository
-	contextTimeout time.Duration
 }
 
-func NewSignupUsecase(ur domain.UserRepository, timeout time.Duration) domain.SignupUsecase {
+func NewSignupUsecase(ur domain.UserRepository) domain.SignupUsecase {
 	return &signupUsecase{
 		userRepository: ur,
-		contextTimeout: timeout,
 	}
 }
 
@@ -32,8 +29,8 @@ func (su signupUsecase) Create(ctx context.Context, name, email, password string
 	return nil
 }
 
-func (su signupUsecase) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
-	user, err := su.userRepository.GetUserByEmail(ctx, email)
+func (su signupUsecase) FetchUserByEmail(ctx context.Context, email string) (*domain.User, error) {
+	user, err := su.userRepository.FetchUserByEmail(ctx, email)
 	if err != nil {
 		return nil, err
 	}
