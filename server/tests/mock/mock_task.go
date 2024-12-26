@@ -56,6 +56,20 @@ func (mr *MockTaskRepositoryMockRecorder) Create(ctx, task any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockTaskRepository)(nil).Create), ctx, task)
 }
 
+// Delete mocks base method.
+func (m *MockTaskRepository) Delete(ctx context.Context, taskID int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", ctx, taskID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete.
+func (mr *MockTaskRepositoryMockRecorder) Delete(ctx, taskID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockTaskRepository)(nil).Delete), ctx, taskID)
+}
+
 // FetchAllTaskByTaskID mocks base method.
 func (m *MockTaskRepository) FetchAllTaskByTaskID(ctx context.Context, taskIDs ...int) ([]domain.Task, error) {
 	m.ctrl.T.Helper()
@@ -92,17 +106,17 @@ func (mr *MockTaskRepositoryMockRecorder) FetchTaskByTaskID(ctx, taskID any) *go
 }
 
 // Update mocks base method.
-func (m *MockTaskRepository) Update(ctx context.Context, task *domain.Task) error {
+func (m *MockTaskRepository) Update(ctx context.Context, taskID int, updateFields map[string]any) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Update", ctx, task)
+	ret := m.ctrl.Call(m, "Update", ctx, taskID, updateFields)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Update indicates an expected call of Update.
-func (mr *MockTaskRepositoryMockRecorder) Update(ctx, task any) *gomock.Call {
+func (mr *MockTaskRepositoryMockRecorder) Update(ctx, taskID, updateFields any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockTaskRepository)(nil).Update), ctx, task)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockTaskRepository)(nil).Update), ctx, taskID, updateFields)
 }
 
 // MockTaskUsecase is a mock of TaskUsecase interface.
@@ -141,6 +155,20 @@ func (m *MockTaskUsecase) Create(ctx context.Context, title, description string,
 func (mr *MockTaskUsecaseMockRecorder) Create(ctx, title, description, userID, due_date any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockTaskUsecase)(nil).Create), ctx, title, description, userID, due_date)
+}
+
+// Delete mocks base method.
+func (m *MockTaskUsecase) Delete(ctx context.Context, taskID, userID int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", ctx, taskID, userID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete.
+func (mr *MockTaskUsecaseMockRecorder) Delete(ctx, taskID, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockTaskUsecase)(nil).Delete), ctx, taskID, userID)
 }
 
 // FetchAllTaskByUserID mocks base method.

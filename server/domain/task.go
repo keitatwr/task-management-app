@@ -52,10 +52,8 @@ type TaskRepository interface {
 	Create(ctx context.Context, task *Task) (int, error)
 	FetchAllTaskByTaskID(ctx context.Context, taskIDs ...int) ([]Task, error)
 	FetchTaskByTaskID(ctx context.Context, taskID int) (*Task, error)
-	Update(ctx context.Context, task *Task) error
-	// GetAllTaskByUserID(ctx context.Context, id int) ([]Task, error)
-	// Update(ctx context.Context, id int) error
-	// Delete(ctx context.Context, id int) error
+	Update(ctx context.Context, taskID int, updateFields map[string]any) error
+	Delete(ctx context.Context, taskID int) error
 }
 
 type TaskUsecase interface {
@@ -63,7 +61,5 @@ type TaskUsecase interface {
 	FetchAllTaskByUserID(ctx context.Context, userID int) ([]Task, error)
 	FetchTaskByTaskID(ctx context.Context, taskID, userID int) (*Task, error)
 	Update(ctx context.Context, taskID, userID int, title, description string, due_date DateOnly) error
-	// GetAllTaskByUserID(ctx context.Context, id int) ([]Task, error)
-	// Update(ctx context.Context, id int) error
-	// Delete(ctx context.Context, id int) error
+	Delete(ctx context.Context, taskID, userID int) error
 }
