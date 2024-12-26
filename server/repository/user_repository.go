@@ -2,8 +2,11 @@ package repository
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/keitatwr/task-management-app/domain"
+	"github.com/keitatwr/task-management-app/internal/myerror"
 	"gorm.io/gorm"
 )
 
@@ -18,42 +21,36 @@ func NewUserReposiotry(db *gorm.DB) domain.UserRepository {
 }
 
 func (ur *userRepository) Create(ctx context.Context, user *domain.User) error {
-	return ur.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(user).Error; err != nil {
-			return err
-		}
-		return nil
-	})
-}
-
-func (ur *userRepository) GetUserByID(ctx context.Context, id int) (*domain.User, error) {
-	var user domain.User
-	if err := ur.db.WithContext(ctx).Where("id = ?", id).Take(&user).Error; err != nil {
-		return nil, err
+	if err := ur.db.WithContext(ctx).Create(user).Error; err != nil {
+		return myerror.ErrQueryFailed.Wrap(err)
 	}
-	return &user, nil
+	return nil
 }
 
-func (ur *userRepository) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
+func (ur *userRepository) FetchUserByID(ctx context.Context, id int) (*domain.User, error) {
+	// var user domain.User
+	// if err := ur.db.WithContext(ctx).Where("id = ?", id).Take(&user).Error; err != nil {
+	// 	return nil, err
+	// }
+	// return &user, nil
+	return nil, fmt.Errorf("not implemented yet")
+}
+
+func (ur *userRepository) FetchUserByEmail(ctx context.Context, email string) (*domain.User, error) {
 	var user domain.User
 	if err := ur.db.WithContext(ctx).Where("email = ?", email).Take(&user).Error; err != nil {
-		return nil, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, myerror.ErrUserNotFound.Wrap(err)
+		}
+		return nil, myerror.ErrQueryFailed.Wrap(err)
 	}
 	return &user, nil
-}
-
-func (ur *userRepository) GetAllUser(ctx context.Context) ([]domain.User, error) {
-	var users []domain.User
-	if err := ur.db.WithContext(ctx).Find(&users).Error; err != nil {
-		return nil, err
-	}
-	return users, nil
 }
 
 func (ur *userRepository) Delete(ctx context.Context, id int) error {
 	return ur.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("id = ?", id).Delete(&domain.User{}).Error; err != nil {
-			return err
+			return myerror.ErrQueryFailed.Wrap(err)
 		}
 		return nil
 	})
