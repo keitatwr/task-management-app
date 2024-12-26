@@ -659,6 +659,26 @@ func TestTaskCtrlUpdate(t *testing.T) {
 				},
 			},
 		},
+		{
+			"permission not found",
+			httptest.NewRequest("PUT", "/tasks/1",
+				strings.NewReader(`{"title":"test title", "description":"test description", "dueDate":"2024-12-31"}`)),
+			func(taskUsecase *mock.MockTaskUsecase) {
+				taskUsecase.EXPECT().Update(gomock.Any(), 1, 1, "test title", "test description", domain.NewDateOnly("2024-12-31")).
+					Return(myerror.ErrPermissionNotFound)
+			},
+			http.StatusForbidden,
+			domain.ErrorResponse{
+				Message: "failed to update task",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodePermissionNotFound),
+						Message:     myerror.ErrMessages[myerror.CodePermissionNotFound],
+						Description: "you don't have permission to access task",
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -691,6 +711,155 @@ func TestTaskCtrlUpdate(t *testing.T) {
 			// run
 			r := gin.Default()
 			r.PUT("/tasks/:taskID", taskCotroller.Update)
+			r.ServeHTTP(response, ctx.Request)
+
+			// assert
+			assert.Equal(t, tt.wantStatus, response.Code)
+			helper.AssertResponse(t, tt.wantStatus, tt.wantRespose, response)
+		})
+	}
+}
+
+func TestTaskCtrlDelete(t *testing.T) {
+	// test cases
+	tests := []struct {
+		title       string
+		request     *http.Request
+		setupMock   func(*mock.MockTaskUsecase)
+		wantStatus  int
+		wantRespose interface{}
+	}{
+		{
+			"success",
+			httptest.NewRequest("DELETE", "/tasks/1", nil),
+			func(taskUsecase *mock.MockTaskUsecase) {
+				taskUsecase.EXPECT().Delete(gomock.Any(), 1, 1).
+					Return(nil)
+			},
+			http.StatusOK,
+			domain.SuccessResponse{Message: "deleted"},
+		},
+		{
+			"validation error uri param",
+			httptest.NewRequest("DELETE", "/tasks/abc", nil),
+			nil,
+			http.StatusBadRequest,
+			domain.ErrorResponse{
+				Message: "your request is validation failed",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodeValidtaionFailed),
+						Message:     myerror.ErrMessages[myerror.CodeValidtaionFailed],
+						Description: "string convert error, expect format: number",
+					},
+				},
+			},
+		},
+		{
+			"user not found",
+			httptest.NewRequest("DELETE", "/tasks/1", nil),
+			nil,
+			http.StatusUnauthorized,
+			domain.ErrorResponse{
+				Message: "unauthorized",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodeContextUserNotFound),
+						Message:     myerror.ErrMessages[myerror.CodeContextUserNotFound],
+						Description: "user not found in context",
+					},
+				},
+			},
+		},
+		{
+			"delete task DB error",
+			httptest.NewRequest("DELETE", "/tasks/1", nil),
+			func(taskUsecase *mock.MockTaskUsecase) {
+				taskUsecase.EXPECT().Delete(gomock.Any(), 1, 1).
+					Return(myerror.ErrQueryFailed)
+			},
+			http.StatusInternalServerError,
+			domain.ErrorResponse{
+				Message: "failed to delete task",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodeQueryFailed),
+						Message:     myerror.ErrMessages[myerror.CodeQueryFailed],
+						Description: "failed to execute query",
+					},
+				},
+			},
+		},
+		{
+			"permission denied",
+			httptest.NewRequest("DELETE", "/tasks/1", nil),
+			func(taskUsecase *mock.MockTaskUsecase) {
+				taskUsecase.EXPECT().Delete(gomock.Any(), 1, 1).
+					Return(myerror.ErrPermissionDenied)
+			},
+			http.StatusForbidden,
+			domain.ErrorResponse{
+				Message: "failed to delete task",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodePermissionDenied),
+						Message:     myerror.ErrMessages[myerror.CodePermissionDenied],
+						Description: "permission denied",
+					},
+				},
+			},
+		},
+		{
+			"permission not found",
+			httptest.NewRequest("DELETE", "/tasks/1", nil),
+			func(taskUsecase *mock.MockTaskUsecase) {
+				taskUsecase.EXPECT().Delete(gomock.Any(), 1, 1).
+					Return(myerror.ErrPermissionNotFound)
+			},
+			http.StatusForbidden,
+			domain.ErrorResponse{
+				Message: "failed to delete task",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodePermissionNotFound),
+						Message:     myerror.ErrMessages[myerror.CodePermissionNotFound],
+						Description: "you don't have permission to access task",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.title, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+
+			// mock
+			taskUsecase, tearDown := getMockTaskUsecase(t)
+			defer tearDown()
+
+			response := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(response)
+
+			// request
+			ctx.Request = tt.request
+
+			// user context
+			if tt.wantStatus != http.StatusUnauthorized {
+				user := domain.User{ID: 1, Name: "test user"}
+				middleware.SetUserContext(ctx, user)
+			}
+
+			if tt.setupMock != nil {
+				tt.setupMock(taskUsecase)
+			}
+
+			// controller
+			taskCotroller := controller.TaskController{TaskUsecase: taskUsecase}
+
+			// run
+			r := gin.Default()
+			r.DELETE("/tasks/:taskID", taskCotroller.Delete)
 			r.ServeHTTP(response, ctx.Request)
 
 			// assert
