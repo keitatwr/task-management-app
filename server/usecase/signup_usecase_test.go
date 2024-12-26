@@ -2,131 +2,171 @@ package usecase_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
-	"time"
 
-	"github.com/golang/mock/gomock"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/keitatwr/task-management-app/domain"
-	"github.com/keitatwr/task-management-app/tests/mocks"
+	"github.com/keitatwr/task-management-app/internal/myerror"
+	"github.com/keitatwr/task-management-app/tests/mock"
 	"github.com/keitatwr/task-management-app/usecase"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
-func getMockUserRepository(t *testing.T) (*mocks.MockUserRepository, func()) {
-	mockCtrl := gomock.NewController(t)
-	tearDown := func() {
-		mockCtrl.Finish()
+func getMockUserRepository(t *testing.T) (*mock.MockUserRepository, func()) {
+	ctrl := gomock.NewController(t)
+	teardown := func() {
+		ctrl.Finish()
 	}
-	return mocks.NewMockUserRepository(mockCtrl), tearDown
+	return mock.NewMockUserRepository(ctrl), teardown
 }
 
-func TestCreateUser(t *testing.T) {
+func TestSignupUsecaseCreate(t *testing.T) {
 	type args struct {
-		name     string
-		email    string
-		password string
+		name              string
+		email             string
+		password          string
+		setupMockUserRepo func(repo *mock.MockUserRepository)
 	}
-
 	tests := []struct {
-		title         string
-		args          args
-		expectedError bool
+		title     string
+		args      args
+		wantError error
 	}{
 		{
-			"create user successfully",
-			args{
-				name:     "test name",
-				email:    "test email",
-				password: "test password",
+			title: "success",
+			args: args{
+				name:     "test",
+				email:    "test@example.com",
+				password: "password",
+				setupMockUserRepo: func(repo *mock.MockUserRepository) {
+					repo.EXPECT().Create(gomock.Any(), &domain.User{
+						Name:     "test",
+						Email:    "test@example.com",
+						Password: "password",
+					}).Return(nil)
+				},
 			},
-			false,
+			wantError: nil,
 		},
 		{
-			"fail to create user",
-			args{
-				name:     "test name",
-				email:    "test email",
-				password: "test password",
+			title: "create user failed",
+			args: args{
+				name:     "test",
+				email:    "test@example.com",
+				password: "password",
+				setupMockUserRepo: func(repo *mock.MockUserRepository) {
+					repo.EXPECT().Create(gomock.Any(), &domain.User{
+						Name:     "test",
+						Email:    "test@example.com",
+						Password: "password",
+					}).Return(myerror.ErrQueryFailed)
+				},
 			},
-			true,
+			wantError: myerror.ErrQueryFailed,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
-			mock, tearDown := getMockUserRepository(t)
+			// mock
+			mockUerRepo, tearDown := getMockUserRepository(t)
 			defer tearDown()
-			if tt.expectedError {
-				mock.EXPECT().Create(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error creating user"))
-			} else {
-				mock.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil)
-			}
 
-			usecase := usecase.NewSignupUsecase(mock, 10)
-			err := usecase.Create(context.TODO(), tt.args.name, tt.args.email, tt.args.password)
+			tt.args.setupMockUserRepo(mockUerRepo)
 
-			if tt.expectedError {
-				require.Error(t, err, "expected an error but got none")
+			// run
+			uc := usecase.NewSignupUsecase(mockUerRepo)
+			err := uc.Create(context.Background(), tt.args.name, tt.args.email, tt.args.password)
+
+			// assert
+			if tt.wantError != nil {
+				assert.Error(t, err)
+				assert.Equal(t, tt.wantError, err)
 			} else {
-				require.NoError(t, err, "expected no error but got one")
+				assert.NoError(t, err)
 			}
 		})
 	}
 }
 
-func TestGetUserByEmail(t *testing.T) {
-	createdTime := time.Now()
+func TestSignupUsecaseFetchUserByEmail(t *testing.T) {
+	type args struct {
+		email             string
+		setupMockUserRepo func(repo *mock.MockUserRepository)
+	}
 	tests := []struct {
-		title         string
-		email         string
-		expected      *domain.User
-		expectedError bool
+		title     string
+		args      args
+		wantUser  *domain.User
+		wantError error
 	}{
 		{
-			"get user by email successfully",
-			"test email",
-			&domain.User{
-				ID:        1,
-				Name:      "test name",
-				Email:     "test email",
-				Password:  "test password",
-				CreatedAt: createdTime,
+			"success",
+			args{
+				email: "test@example.com",
+				setupMockUserRepo: func(repo *mock.MockUserRepository) {
+					repo.EXPECT().FetchUserByEmail(gomock.Any(), "test@example.com").Return(&domain.User{
+						Name:     "test",
+						Email:    "test@example.com",
+						Password: "password",
+					}, nil)
+				},
 			},
-			false,
+			&domain.User{
+				Name:     "test",
+				Email:    "test@example.com",
+				Password: "password",
+			},
+			nil,
 		},
 		{
-			"get user by email successfully",
-			"test email",
-			&domain.User{
-				ID:        1,
-				Name:      "test name",
-				Email:     "test email",
-				Password:  "test password",
-				CreatedAt: createdTime,
+			"user not found",
+			args{
+				email: "test@example.com",
+				setupMockUserRepo: func(repo *mock.MockUserRepository) {
+					repo.EXPECT().FetchUserByEmail(gomock.Any(), "test@example.com").Return(nil, myerror.ErrUserNotFound)
+				},
 			},
-			true,
+			nil,
+			myerror.ErrUserNotFound,
+		},
+		{
+			"fetch user failed",
+			args{
+				email: "test@example.com",
+				setupMockUserRepo: func(repo *mock.MockUserRepository) {
+					repo.EXPECT().FetchUserByEmail(gomock.Any(), "test@example.com").Return(nil, myerror.ErrQueryFailed)
+				},
+			},
+			nil,
+			myerror.ErrQueryFailed,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
-			mock, tearDown := getMockUserRepository(t)
+			// mock
+			mockUerRepo, tearDown := getMockUserRepository(t)
 			defer tearDown()
-			if tt.expectedError {
-				mock.EXPECT().GetUserByEmail(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("error getting user"))
-			} else {
-				mock.EXPECT().GetUserByEmail(gomock.Any(), gomock.Any()).Return(tt.expected, nil)
-			}
 
-			usecase := usecase.NewSignupUsecase(mock, 10)
-			user, err := usecase.GetUserByEmail(context.TODO(), tt.email)
+			tt.args.setupMockUserRepo(mockUerRepo)
 
-			if tt.expectedError {
-				require.Error(t, err, "expected an error but got none")
+			// run
+			uc := usecase.NewSignupUsecase(mockUerRepo)
+			user, err := uc.FetchUserByEmail(context.Background(), tt.args.email)
+
+			// assert
+			if tt.wantError != nil {
+				assert.Error(t, err)
+				assert.Equal(t, tt.wantError, err)
 			} else {
-				require.NoError(t, err, "expected no error but got one")
-				require.Equal(t, tt.expected, user)
+				assert.NoError(t, err)
+				opt := cmpopts.IgnoreFields(domain.User{}, "CreatedAt")
+				if diff := cmp.Diff(tt.wantUser, user, opt); diff != "" {
+					t.Errorf("diff: (-want +got)\n%s", diff)
+				}
 			}
 		})
 	}
