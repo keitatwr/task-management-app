@@ -10,7 +10,9 @@ import (
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/keitatwr/task-management-app/domain"
+	"github.com/keitatwr/task-management-app/internal/myerror"
 	"github.com/keitatwr/task-management-app/repository"
+	"github.com/keitatwr/task-management-app/tests/helper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
@@ -36,34 +38,38 @@ func GetDbMock(t *testing.T) (*gorm.DB, sqlmock.Sqlmock, func()) {
 }
 
 func TestCreateUser(t *testing.T) {
-	now := time.Now()
+	type args struct {
+		user  *domain.User
+		query string
+	}
 	tests := []struct {
-		title         string
-		user          *domain.User
-		query         string
-		expectedError bool
+		title     string
+		args      args
+		wantError error
 	}{
 		{
-			"create a user successfully",
-			&domain.User{
-				Name:      "sample name",
-				Email:     "test@test.co.jp",
-				Password:  "secret",
-				CreatedAt: now,
+			"success",
+			args{
+				user: &domain.User{
+					Name:     "test",
+					Email:    "test@example.com",
+					Password: "password",
+				},
+				query: `INSERT INTO "users" ("name","email","password","created_at") VALUES ($1,$2,$3,$4)`,
 			},
-			`INSERT INTO "users" ("name","email","password","created_at") VALUES ($1,$2,$3,$4)`,
-			false,
+			nil,
 		},
 		{
-			"create a user with error",
-			&domain.User{
-				Name:      "sample name",
-				Email:     "test@test.co.jp",
-				Password:  "secret",
-				CreatedAt: now,
+			"create user failed",
+			args{
+				user: &domain.User{
+					Name:     "test",
+					Email:    "test@example.com",
+					Password: "password",
+				},
+				query: `INSERT INTO "users" ("name","email","password","created_at") VALUES ($1,$2,$3,$4)`,
 			},
-			`INSERT INTO "users" ("name","email","password","created_at") VALUES ($1,$2,$3,$4)`,
-			true,
+			myerror.ErrQueryFailed,
 		},
 	}
 
@@ -73,26 +79,30 @@ func TestCreateUser(t *testing.T) {
 			db, mock, tearDown := GetDbMock(t)
 			defer tearDown()
 			mock.MatchExpectationsInOrder(false)
-			mock.ExpectBegin()
-			if tt.expectedError {
-				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
-					WithArgs(tt.user.Name, tt.user.Email, tt.user.Password, tt.user.CreatedAt).
-					WillReturnError(fmt.Errorf("create user error"))
+
+			switch tt.wantError {
+			case myerror.ErrQueryFailed:
+				mock.ExpectBegin()
+				mock.ExpectQuery(regexp.QuoteMeta(tt.args.query)).
+					WithArgs(tt.args.user.Name, tt.args.user.Email, tt.args.user.Password, helper.AnyTime{}).
+					WillReturnError(tt.wantError)
 				mock.ExpectRollback()
-			} else {
-				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
-					WithArgs(tt.user.Name, tt.user.Email, tt.user.Password, tt.user.CreatedAt).
+			default:
+				mock.ExpectBegin()
+				mock.ExpectQuery(regexp.QuoteMeta(tt.args.query)).
+					WithArgs(tt.args.user.Name, tt.args.user.Email, tt.args.user.Password, helper.AnyTime{}).
 					WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 				mock.ExpectCommit()
 			}
 
 			// run
 			r := repository.NewUserReposiotry(db)
-			err := r.Create(context.TODO(), tt.user)
+			err := r.Create(context.TODO(), tt.args.user)
 
 			// assert
-			if tt.expectedError {
+			if tt.wantError != nil {
 				assert.Error(t, err)
+				assert.Equal(t, tt.wantError, err)
 			} else {
 				assert.NoError(t, err)
 			}
@@ -104,44 +114,51 @@ func TestCreateUser(t *testing.T) {
 	}
 }
 
-func TestGetUser(t *testing.T) {
-	now := time.Now()
-	columns := []string{"id", "name", "email", "password", "created_at"}
+func TestFetchUserByEmail(t *testing.T) {
+	type args struct {
+		email   string
+		query   string
+		mockRow []driver.Value
+	}
 	tests := []struct {
-		title         string
-		id            int
-		query         string
-		mockRow       []driver.Value
-		expected      *domain.User
-		expectedError bool
+		title     string
+		args      args
+		wantUser  *domain.User
+		wantError error
 	}{
 		{
-			"get a user successfully",
-			1,
-			`SELECT * FROM "users" WHERE id = $1 LIMIT $2`,
-			[]driver.Value{1, "sample name", "test@test.co.jp", "secret", now},
+			"success",
+			args{
+				email:   "test@example.com",
+				query:   `SELECT * FROM "users" WHERE email = $1 LIMIT $2`,
+				mockRow: []driver.Value{1, "test", "test@example.com", "hashedPassword", time.Time{}},
+			},
 			&domain.User{
 				ID:        1,
-				Name:      "sample name",
-				Email:     "test@test.co.jp",
-				Password:  "secret",
-				CreatedAt: now,
+				Name:      "test",
+				Email:     "test@example.com",
+				Password:  "hashedPassword",
+				CreatedAt: time.Time{},
 			},
-			false,
+			nil,
 		},
 		{
-			"get a user with error",
-			1,
-			`SELECT * FROM "users" WHERE id = $1 LIMIT $2`,
-			[]driver.Value{1, "sample name", "test@test.co.jp", "secret", now},
-			&domain.User{
-				ID:        1,
-				Name:      "sample name",
-				Email:     "test@test.co.jp",
-				Password:  "secret",
-				CreatedAt: now,
+			"user not found",
+			args{
+				email: "test@example.com",
+				query: `SELECT * FROM "users" WHERE email = $1 LIMIT $2`,
 			},
-			true,
+			nil,
+			myerror.ErrUserNotFound,
+		},
+		{
+			"fetch user failed",
+			args{
+				email: "test@example.com",
+				query: `SELECT * FROM "users" WHERE email = $1 LIMIT $2`,
+			},
+			nil,
+			myerror.ErrQueryFailed,
 		},
 	}
 
@@ -151,127 +168,35 @@ func TestGetUser(t *testing.T) {
 			db, mock, tearDown := GetDbMock(t)
 			defer tearDown()
 			mock.MatchExpectationsInOrder(false)
-			if tt.expectedError {
-				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
-					WithArgs(tt.id, 1).
-					WillReturnError(fmt.Errorf("get user error"))
-			} else {
-				rows := sqlmock.NewRows(columns).AddRow(tt.mockRow...)
-				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
-					WithArgs(tt.id, 1).
+
+			switch tt.wantError {
+			case myerror.ErrUserNotFound:
+				mock.ExpectQuery(regexp.QuoteMeta(tt.args.query)).
+					WithArgs(tt.args.email, 1).
+					WillReturnError(gorm.ErrRecordNotFound)
+			case myerror.ErrQueryFailed:
+				mock.ExpectQuery(regexp.QuoteMeta(tt.args.query)).
+					WithArgs(tt.args.email, 1).
+					WillReturnError(fmt.Errorf("fetch user failed"))
+			default:
+				rows := sqlmock.NewRows([]string{"id", "name", "email", "password", "created_at"}).AddRow(tt.args.mockRow...)
+				mock.ExpectQuery(regexp.QuoteMeta(tt.args.query)).
+					WithArgs(tt.args.email, 1).
 					WillReturnRows(rows)
 			}
 
 			// run
 			r := repository.NewUserReposiotry(db)
-			actual, err := r.GetUserByID(context.TODO(), tt.id)
+			user, err := r.FetchUserByEmail(context.TODO(), tt.args.email)
 
 			// assert
-
-			if tt.expectedError {
+			if tt.wantError != nil {
 				assert.Error(t, err)
+				assert.Nil(t, user)
+				assert.Equal(t, tt.wantError, err)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, actual)
-			}
-
-			if err := mock.ExpectationsWereMet(); err != nil {
-				t.Errorf("there were unfulfilled expectations: %s", err)
-			}
-		})
-	}
-}
-
-func TestGetAllUser(t *testing.T) {
-	now := time.Now()
-	columns := []string{"id", "name", "email", "password", "created_at"} // 期待するカラム数
-
-	tests := []struct {
-		title         string
-		query         string
-		mockRows      [][]driver.Value
-		expected      []domain.User
-		expectedError bool
-	}{
-		{
-			"get all users successfully",
-			`SELECT * FROM "users"`,
-			[][]driver.Value{
-				[]driver.Value{1, "sample name 1", "test1@test.co.jp", "secret1", now},
-				[]driver.Value{2, "sample name 2", "test2@test.co.jp", "secret2", now},
-			},
-			[]domain.User{
-				{
-					ID:        1,
-					Name:      "sample name 1",
-					Email:     "test1@test.co.jp",
-					Password:  "secret1",
-					CreatedAt: now,
-				},
-				{
-					ID:        2,
-					Name:      "sample name 2",
-					Email:     "test2@test.co.jp",
-					Password:  "secret2",
-					CreatedAt: now,
-				},
-			},
-			false,
-		},
-		{
-			"get all users with error",
-			`SELECT * FROM "users"`,
-			[][]driver.Value{
-				[]driver.Value{1, "sample name 1", "test1@test.co.jp", "secret1", now},
-				[]driver.Value{2, "sample name 2", "test2@test.co.jp", "secret2", now},
-			},
-			[]domain.User{
-				{
-					ID:        1,
-					Name:      "sample name 1",
-					Email:     "test1@test.co.jp",
-					Password:  "secret1",
-					CreatedAt: now,
-				},
-				{
-					ID:        2,
-					Name:      "sample name 2",
-					Email:     "test2@test.co.jp",
-					Password:  "secret2",
-					CreatedAt: now,
-				},
-			},
-			true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.title, func(t *testing.T) {
-			// mock
-			db, mock, tearDown := GetDbMock(t)
-			defer tearDown()
-			if tt.expectedError {
-				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
-					WillReturnError(fmt.Errorf("get all user error"))
-			} else {
-				rows := sqlmock.NewRows(columns)
-				for _, row := range tt.mockRows {
-					rows.AddRow(row...)
-				}
-				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
-					WillReturnRows(rows)
-			}
-
-			// run
-			r := repository.NewUserReposiotry(db)
-			actual, err := r.GetAllUser(context.TODO())
-
-			// assert
-			if tt.expectedError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, actual)
+				assert.Equal(t, tt.wantUser, user)
 			}
 
 			if err := mock.ExpectationsWereMet(); err != nil {
@@ -282,23 +207,30 @@ func TestGetAllUser(t *testing.T) {
 }
 
 func TestDeleteUser(t *testing.T) {
+	type args struct {
+		id    int
+		query string
+	}
 	tests := []struct {
-		title         string
-		id            int
-		query         string
-		expectedError bool
+		title     string
+		args      args
+		wantError error
 	}{
 		{
-			"delete a user successfully",
-			1,
-			`DELETE FROM "users" WHERE id = $1`,
-			false,
+			"success",
+			args{
+				id:    1,
+				query: `DELETE FROM "users" WHERE id = $1`,
+			},
+			nil,
 		},
 		{
-			"delete a user with error",
-			1,
-			`DELETE FROM "users" WHERE id = $1`,
-			true,
+			"delete user failed",
+			args{
+				id:    1,
+				query: `DELETE FROM "users" WHERE id = $1`,
+			},
+			myerror.ErrQueryFailed,
 		},
 	}
 
@@ -307,26 +239,31 @@ func TestDeleteUser(t *testing.T) {
 			// mock
 			db, mock, tearDown := GetDbMock(t)
 			defer tearDown()
-			mock.ExpectBegin()
-			if tt.expectedError {
-				mock.ExpectExec(regexp.QuoteMeta(tt.query)).
-					WithArgs(tt.id).
-					WillReturnError(fmt.Errorf("delete error"))
-				// mock.ExpectCommit()
-			} else {
-				mock.ExpectExec(regexp.QuoteMeta(tt.query)).
-					WithArgs(tt.id).
-					WillReturnResult(sqlmock.NewResult(1, 1))
+			mock.MatchExpectationsInOrder(false)
+
+			switch tt.wantError {
+			case myerror.ErrQueryFailed:
+				mock.ExpectBegin()
+				mock.ExpectExec(regexp.QuoteMeta(tt.args.query)).
+					WithArgs(tt.args.id).
+					WillReturnError(fmt.Errorf("delete user failed"))
+				mock.ExpectRollback()
+			default:
+				mock.ExpectBegin()
+				mock.ExpectExec(regexp.QuoteMeta(tt.args.query)).
+					WithArgs(tt.args.id).
+					WillReturnResult(sqlmock.NewResult(0, 1))
 				mock.ExpectCommit()
 			}
 
 			// run
 			r := repository.NewUserReposiotry(db)
-			err := r.Delete(context.TODO(), tt.id)
+			err := r.Delete(context.TODO(), tt.args.id)
 
 			// assert
-			if tt.expectedError {
+			if tt.wantError != nil {
 				assert.Error(t, err)
+				assert.Equal(t, tt.wantError, err)
 			} else {
 				assert.NoError(t, err)
 			}
