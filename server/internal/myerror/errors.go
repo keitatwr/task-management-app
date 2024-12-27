@@ -9,11 +9,20 @@ type ErrorCode int
 const (
 	CodeValidtaionFailed ErrorCode = 1000 + iota
 	CodeContextUserNotFound
+	CodeHashPasswordFailed
+	CodeCreateSessionFailed
+	CodeNoLogin
 )
 
 const (
-	CodeQueryFailed ErrorCode = 2000 + iota
+	CodeUserAlreadyExists ErrorCode = 2000 + iota
+	CodeInvalidPassword
+)
+
+const (
+	CodeQueryFailed ErrorCode = 3000 + iota
 	CodeTaskNotFound
+	CodeUserNotFound
 	CodeGrantPermissionFailed
 	CodePermissionNotFound
 	CodePermissionDenied
@@ -25,27 +34,53 @@ const (
 )
 
 var ErrMessages = map[ErrorCode]string{
-	CodeValidtaionFailed:      "validation failed",
-	CodeContextUserNotFound:   "user not found in context",
+	// 1000
+	CodeValidtaionFailed:    "validation failed",
+	CodeContextUserNotFound: "user not found in context",
+	CodeHashPasswordFailed:  "failed to hash password",
+	CodeCreateSessionFailed: "failed to create session",
+	CodeNoLogin:             "user not logged in",
+
+	// 2000
+	CodeUserAlreadyExists: "user already exists",
+	CodeInvalidPassword:   "invalid password",
+
+	// 3000
 	CodeQueryFailed:           "failed to execute query",
 	CodeTaskNotFound:          "task not found",
+	CodeUserNotFound:          "user not found",
 	CodeGrantPermissionFailed: "failed to grant permission",
 	CodePermissionNotFound:    "permission not found",
 	CodePermissionDenied:      "permission denied",
 	CodeTransactionNotFound:   "failed to get transaction from context",
-	CodeUnExpected:            "unexpected error occurred",
+
+	// 9999
+	CodeUnExpected: "unexpected error occurred",
 }
 
 var (
+	// 1000
 	ErrValidation          = &AppError{Code: CodeValidtaionFailed, Message: ErrMessages[CodeValidtaionFailed]}
 	ErrContextUserNotFound = &AppError{Code: CodeContextUserNotFound, Message: ErrMessages[CodeContextUserNotFound]}
+	ErrHashPassword        = &AppError{Code: CodeHashPasswordFailed, Message: ErrMessages[CodeHashPasswordFailed]}
+	ErrCreateSession       = &AppError{Code: CodeCreateSessionFailed, Message: ErrMessages[CodeCreateSessionFailed]}
+	ErrNoLogin             = &AppError{Code: CodeNoLogin, Message: ErrMessages[CodeNoLogin]}
+
+	// 2000
+	ErrUserAlreadyExists = &AppError{Code: CodeUserAlreadyExists, Message: ErrMessages[CodeUserAlreadyExists]}
+	ErrInvalidPassword   = &AppError{Code: CodeInvalidPassword, Message: ErrMessages[CodeInvalidPassword]}
+
+	// 3000
 	ErrQueryFailed         = &AppError{Code: CodeQueryFailed, Message: ErrMessages[CodeQueryFailed]}
 	ErrTaskNotFound        = &AppError{Code: CodeTaskNotFound, Message: ErrMessages[CodeTaskNotFound]}
+	ErrUserNotFound        = &AppError{Code: CodeUserNotFound, Message: ErrMessages[CodeUserNotFound]}
 	ErrTransactionNotFound = &AppError{Code: CodeTransactionNotFound, Message: ErrMessages[CodeTransactionNotFound]}
 	ErrGrantPermission     = &AppError{Code: CodeGrantPermissionFailed, Message: ErrMessages[CodeGrantPermissionFailed]}
 	ErrPermissionNotFound  = &AppError{Code: CodePermissionNotFound, Message: ErrMessages[CodePermissionNotFound]}
 	ErrPermissionDenied    = &AppError{Code: CodePermissionDenied, Message: ErrMessages[CodePermissionDenied]}
-	ErrUnExpected          = &AppError{Code: CodeUnExpected, Message: ErrMessages[CodeUnExpected]}
+
+	// 9999
+	ErrUnExpected = &AppError{Code: CodeUnExpected, Message: ErrMessages[CodeUnExpected]}
 )
 
 type AppError struct {
