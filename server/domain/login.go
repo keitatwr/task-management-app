@@ -7,7 +7,7 @@ import (
 )
 
 type LoginUsecase interface {
-	GetUserByEmail(ctx context.Context, email string) (*User, error)
+	FetchUserByEmail(ctx context.Context, email string) (*User, error)
 	CreateSession(ctx *gin.Context, user User) error
 }
 

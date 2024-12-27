@@ -56,17 +56,17 @@ func (mr *MockLoginUsecaseMockRecorder) CreateSession(ctx, user any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSession", reflect.TypeOf((*MockLoginUsecase)(nil).CreateSession), ctx, user)
 }
 
-// GetUserByEmail mocks base method.
-func (m *MockLoginUsecase) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
+// FetchUserByEmail mocks base method.
+func (m *MockLoginUsecase) FetchUserByEmail(ctx context.Context, email string) (*domain.User, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUserByEmail", ctx, email)
+	ret := m.ctrl.Call(m, "FetchUserByEmail", ctx, email)
 	ret0, _ := ret[0].(*domain.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetUserByEmail indicates an expected call of GetUserByEmail.
-func (mr *MockLoginUsecaseMockRecorder) GetUserByEmail(ctx, email any) *gomock.Call {
+// FetchUserByEmail indicates an expected call of FetchUserByEmail.
+func (mr *MockLoginUsecaseMockRecorder) FetchUserByEmail(ctx, email any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByEmail", reflect.TypeOf((*MockLoginUsecase)(nil).GetUserByEmail), ctx, email)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchUserByEmail", reflect.TypeOf((*MockLoginUsecase)(nil).FetchUserByEmail), ctx, email)
 }

@@ -17,6 +17,5 @@ type UserRepository interface {
 	Create(ctx context.Context, user *User) error
 	FetchUserByID(ctx context.Context, id int) (*User, error)
 	FetchUserByEmail(ctx context.Context, email string) (*User, error)
-	FetchAllUser(ctx context.Context) ([]User, error)
 	Delete(ctx context.Context, id int) error
 }
