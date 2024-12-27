@@ -3,10 +3,13 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/keitatwr/task-management-app/api/response"
 	"github.com/keitatwr/task-management-app/domain"
+	"github.com/keitatwr/task-management-app/internal/myerror"
 )
 
 var userContextKey = struct{}{}
@@ -29,13 +32,15 @@ func AuthMiddleware() gin.HandlerFunc {
 		session := sessions.Default(c)
 		authUserJson := session.Get("userInfo")
 		if authUserJson == nil {
-			c.JSON(401, domain.ErrorResponse{Message: "unauthorized"})
+			err := myerror.ErrNoLogin.WithDescription("user not logged in")
+			response.Error(c, http.StatusUnauthorized, "unauthorized", err)
 			c.Abort()
 			return
 		}
 		var authUser domain.User
 		if err := json.Unmarshal([]byte(authUserJson.(string)), &authUser); err != nil {
-			c.JSON(401, domain.ErrorResponse{Message: "unauthorized"})
+			err := myerror.ErrUnExpected.WrapWithDescription(err, "occurrred unexpected error")
+			response.Error(c, http.StatusInternalServerError, "unexpected error", err)
 			c.Abort()
 			return
 		}
