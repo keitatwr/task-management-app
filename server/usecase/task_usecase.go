@@ -97,11 +97,24 @@ func (u *taskUsecase) Update(ctx context.Context, taskID, userID int, title, des
 		return myerror.ErrPermissionDenied
 	}
 
+	update_fileds := map[string]any{
+		"title":       title,
+		"description": description,
+		"due_date":    dueDate,
+	}
+
 	return u.taskRepository.Update(ctx,
-		&domain.Task{
-			ID:          taskID,
-			Title:       title,
-			Description: description,
-			DueDate:     dueDate,
-		})
+		taskID, update_fileds)
+}
+
+func (u *taskUsecase) Delete(ctx context.Context, taskID, userID int) error {
+	permisison, err := u.taskPermissionRepository.FetchPermissionByTaskID(ctx, taskID, userID)
+	if err != nil {
+		return err
+	}
+	if !permisison.CanEdit {
+		return myerror.ErrPermissionDenied
+	}
+
+	return u.taskRepository.Delete(ctx, taskID)
 }
