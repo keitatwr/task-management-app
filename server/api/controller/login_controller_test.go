@@ -1,7 +1,6 @@
 package controller_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -9,11 +8,14 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang/mock/gomock"
 	"github.com/keitatwr/task-management-app/api/controller"
 	"github.com/keitatwr/task-management-app/domain"
-	"github.com/keitatwr/task-management-app/tests/mocks"
+	"github.com/keitatwr/task-management-app/internal/myerror"
+	"github.com/keitatwr/task-management-app/internal/security"
+	"github.com/keitatwr/task-management-app/tests/helper"
+	"github.com/keitatwr/task-management-app/tests/mock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 type MockPasswordComparer struct{}
@@ -24,174 +26,219 @@ func (mc *MockPasswordComparer) ComparePassword(hashedPassword, password string)
 
 type ErrMockPasswordComparer struct{}
 
-func (emc *ErrMockPasswordComparer) ComparePassword(hashedPassword, password string) error {
-	return fmt.Errorf("password is incorrect")
+func (mc *ErrMockPasswordComparer) ComparePassword(hashedPassword, password string) error {
+	return fmt.Errorf("invalid password")
 }
 
-func getLoginUsecaseMock(t *testing.T) (*mocks.MockLoginUsecase, func()) {
+func getLoginUsecaseMock(t *testing.T) (*mock.MockLoginUsecase, func()) {
 	ctrl := gomock.NewController(t)
 	teardown := func() {
 		ctrl.Finish()
 	}
-	return mocks.NewMockLoginUsecase(ctrl), teardown
+	return mock.NewMockLoginUsecase(ctrl), teardown
 }
 
-func mockGetUserByEmailForLogin(loginUsecase *mocks.MockLoginUsecase, tt struct {
-	title              string
-	request            domain.LoginRequest
-	expectedStatus     int
-	expectedMessage    string
-	expectedError      bool
-	invalidRequest     bool
-	userNotFound       bool
-	passwordIncorrect  bool
-	createSessionError bool
-}) {
-	if tt.userNotFound {
-		loginUsecase.EXPECT().GetUserByEmail(gomock.Any(), tt.request.Email).
-			Return(nil, fmt.Errorf("user not found"))
-	} else {
-		loginUsecase.EXPECT().GetUserByEmail(gomock.Any(), tt.request.Email).
-			Return(&domain.User{}, nil)
-	}
-}
-
-func mockCreateSessionForLogin(loginUsecase *mocks.MockLoginUsecase, tt struct {
-	title              string
-	request            domain.LoginRequest
-	expectedStatus     int
-	expectedMessage    string
-	expectedError      bool
-	invalidRequest     bool
-	userNotFound       bool
-	passwordIncorrect  bool
-	createSessionError bool
-}) {
-	if tt.createSessionError {
-		loginUsecase.EXPECT().CreateSession(gomock.Any(), gomock.Any()).
-			Return(fmt.Errorf("failed to create session"))
-	} else {
-		loginUsecase.EXPECT().CreateSession(gomock.Any(), gomock.Any()).
-			Return(nil)
-	}
-}
-
-func TestLoginController(t *testing.T) {
+func TestLogin(t *testing.T) {
 	tests := []struct {
-		title              string
-		request            domain.LoginRequest
-		expectedStatus     int
-		expectedMessage    string
-		expectedError      bool
-		invalidRequest     bool
-		userNotFound       bool
-		passwordIncorrect  bool
-		createSessionError bool
+		title            string
+		request          *http.Request
+		setupMockUsecace func(loginUsecase *mock.MockLoginUsecase)
+		passwordComparer security.PasswordComparer
+		wantStatus       int
+		wantResponse     interface{}
 	}{
 		{
-			title: "success",
-			request: domain.LoginRequest{
-				Email:    "test@test.co.jp",
-				Password: "secret",
+			"success",
+			httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(`{"email":"test@example.com","password":"password"}`)),
+			func(loginUsecase *mock.MockLoginUsecase) {
+				loginUsecase.EXPECT().FetchUserByEmail(gomock.Any(), "test@example.com").
+					Return(&domain.User{
+						Name:     "test",
+						Email:    "test@example.com",
+						Password: "hashedPassword",
+					}, nil)
+				loginUsecase.EXPECT().CreateSession(gomock.Any(), gomock.Any()).Return(nil)
 			},
-			expectedStatus:  http.StatusOK,
-			expectedMessage: "login success",
+			&MockPasswordComparer{},
+			http.StatusFound,
+			nil,
 		},
 		{
-			title: "unsuccessfully invalid request",
-			request: domain.LoginRequest{
-				Email: "test@test.co.jp",
+			"validation error one missing field",
+			httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(`{"email":"test@example.com","passwor":"passeword"}`)),
+			nil,
+			nil,
+			http.StatusBadRequest,
+			domain.ErrorResponse{
+				Message: "your request is validation failed",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodeValidtaionFailed),
+						Message:     myerror.ErrMessages[myerror.CodeValidtaionFailed],
+						Description: "missing fields: Password",
+					},
+				},
 			},
-			expectedStatus: http.StatusBadRequest,
-			expectedError:  true,
-			invalidRequest: true,
-			expectedMessage: "Key: 'LoginRequest.Password' Error:" +
-				"Field validation for 'Password' failed on the 'required' tag",
 		},
 		{
-			title: "unsuccessfully user not found",
-			request: domain.LoginRequest{
-				Email:    "test@test.co.jp",
-				Password: "secret",
+			"validation error type missmatch",
+			httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(`{"email":"test@example.com","password":123}`)),
+			nil,
+			nil,
+			http.StatusBadRequest,
+			domain.ErrorResponse{
+				Message: "your request is validation failed",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodeValidtaionFailed),
+						Message:     myerror.ErrMessages[myerror.CodeValidtaionFailed],
+						Description: "missing field type: password, expect: string, actual: number",
+					},
+				},
 			},
-			expectedStatus:  http.StatusNotFound,
-			expectedError:   true,
-			userNotFound:    true,
-			expectedMessage: "user not found",
 		},
 		{
-			title: "unsuccessfully password is incorrect",
-			request: domain.LoginRequest{
-				Email:    "test@test.co.jp",
-				Password: "secret",
+			"validation error json syntax error",
+			httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(`{"email":"test@example.com, "passwor":"passeword"}`)),
+			nil,
+			nil,
+			http.StatusBadRequest,
+			domain.ErrorResponse{
+				Message: "your request is validation failed",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodeValidtaionFailed),
+						Message:     myerror.ErrMessages[myerror.CodeValidtaionFailed],
+						Description: "json syntax error, offset: 30",
+					},
+				},
 			},
-			expectedStatus:    http.StatusUnauthorized,
-			expectedError:     true,
-			passwordIncorrect: true,
-			expectedMessage:   "password is incorrect",
 		},
 		{
-			title: "unsuccessfully create session error",
-			request: domain.LoginRequest{
-				Email:    "test@test.co.jp",
-				Password: "secret",
+			"user not found",
+			httptest.NewRequest("POST", "/login", strings.NewReader(`{"email":"test@example.com","password":"password"}`)),
+			func(loginUsecase *mock.MockLoginUsecase) {
+				loginUsecase.EXPECT().FetchUserByEmail(gomock.Any(), "test@example.com").
+					Return(nil, myerror.ErrUserNotFound)
 			},
-			expectedStatus:     http.StatusInternalServerError,
-			expectedError:      true,
-			createSessionError: true,
-			expectedMessage:    "failed to create session",
+			nil,
+			http.StatusUnauthorized,
+			domain.ErrorResponse{
+				Message: "failed to login",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodeUserNotFound),
+						Message:     myerror.ErrMessages[myerror.CodeUserNotFound],
+						Description: "user not found",
+					},
+				},
+			},
+		},
+		{
+			"fetch user failed",
+			httptest.NewRequest("POST", "/login", strings.NewReader(`{"email":"test@example.com","password":"password"}`)),
+			func(loginUsecase *mock.MockLoginUsecase) {
+				loginUsecase.EXPECT().FetchUserByEmail(gomock.Any(), "test@example.com").
+					Return(nil, myerror.ErrQueryFailed)
+			},
+			nil,
+			http.StatusInternalServerError,
+			domain.ErrorResponse{
+				Message: "failed to login",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodeQueryFailed),
+						Message:     myerror.ErrMessages[myerror.CodeQueryFailed],
+						Description: "failed to execute query",
+					},
+				},
+			},
+		},
+		{
+			"invalid passwrod",
+			httptest.NewRequest("POST", "/login", strings.NewReader(`{"email":"test@example.com","password":"invalid password"}`)),
+			func(loginUsecase *mock.MockLoginUsecase) {
+				loginUsecase.EXPECT().FetchUserByEmail(gomock.Any(), "test@example.com").
+					Return(&domain.User{
+						Name:     "test",
+						Email:    "test@example.com",
+						Password: "hashedPassword",
+					}, nil)
+			},
+			&ErrMockPasswordComparer{},
+			http.StatusUnauthorized,
+			domain.ErrorResponse{
+				Message: "failed to login",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodeInvalidPassword),
+						Message:     myerror.ErrMessages[myerror.CodeInvalidPassword],
+						Description: "invalid password",
+					},
+				},
+			},
+		},
+		{
+			"create session failed",
+			httptest.NewRequest("POST", "/login", strings.NewReader(`{"email":"test@example.com","password":"password"}`)),
+			func(loginUsecase *mock.MockLoginUsecase) {
+				loginUsecase.EXPECT().FetchUserByEmail(gomock.Any(), "test@example.com").
+					Return(&domain.User{
+						Name:     "test",
+						Email:    "test@example.com",
+						Password: "hashedPassword",
+					}, nil)
+				loginUsecase.EXPECT().CreateSession(gomock.Any(), gomock.Any()).Return(fmt.Errorf("failed to create session"))
+			},
+			&MockPasswordComparer{},
+			http.StatusInternalServerError,
+			domain.ErrorResponse{
+				Message: "failed to login",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodeCreateSessionFailed),
+						Message:     myerror.ErrMessages[myerror.CodeCreateSessionFailed],
+						Description: "failed to create session",
+					},
+				},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
 			gin.SetMode(gin.TestMode)
-			// mock
-			loginUsecase, tearDown := getLoginUsecaseMock(t)
-			defer tearDown()
-			w := httptest.NewRecorder()
-			ctx, _ := gin.CreateTestContext(w)
 
-			// mock expectation
-			if !tt.invalidRequest {
-				mockGetUserByEmailForLogin(loginUsecase, tt)
-				if !tt.userNotFound && !tt.passwordIncorrect {
-					mockCreateSessionForLogin(loginUsecase, tt)
-				}
+			//mock
+			loginUsecase, teardown := getLoginUsecaseMock(t)
+			defer teardown()
+
+			if tt.setupMockUsecace != nil {
+				tt.setupMockUsecace(loginUsecase)
 			}
+
+			response := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(response)
 
 			// request
-			ctx.Request = httptest.NewRequest("POST", "/login", strings.NewReader(
-				fmt.Sprintf(`{"email":"%s","password":"%s"}`,
-					tt.request.Email, tt.request.Password)))
-			ctx.Request.Header.Set("Content-Type", "application/json")
+			ctx.Request = tt.request
 
 			// controller
-			loginController := controller.LoginController{LoginUsecase: loginUsecase}
-			if tt.passwordIncorrect {
-				loginController.PasswordCompareer = &ErrMockPasswordComparer{}
-			} else {
-				loginController.PasswordCompareer = &MockPasswordComparer{}
+			loginController := controller.LoginController{
+				LoginUsecase:      loginUsecase,
+				PasswordCompareer: tt.passwordComparer,
 			}
 
-			// run
 			r := gin.Default()
 			r.POST("/login", loginController.Login)
-			r.ServeHTTP(w, ctx.Request)
+			r.ServeHTTP(response, ctx.Request)
 
 			// assert
-			assert.Equal(t, tt.expectedStatus, w.Code)
-			if tt.expectedError {
-				var response domain.ErrorResponse
-				err := json.Unmarshal(w.Body.Bytes(), &response)
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedMessage, response.Message)
-			} else {
-				var response domain.SuccessResponse
-				err := json.Unmarshal(w.Body.Bytes(), &response)
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedMessage, response.Message)
+			assert.Equal(t, tt.wantStatus, response.Code)
+			if tt.wantStatus != http.StatusFound {
+				helper.AssertResponse(t, tt.wantStatus, tt.wantResponse, response)
 			}
+
 		})
 	}
 }

@@ -1,81 +1,165 @@
 package usecase_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang/mock/gomock"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/keitatwr/task-management-app/domain"
-	"github.com/keitatwr/task-management-app/tests/mocks"
+	"github.com/keitatwr/task-management-app/internal/myerror"
+	"github.com/keitatwr/task-management-app/internal/session"
+	"github.com/keitatwr/task-management-app/tests/helper"
+	"github.com/keitatwr/task-management-app/tests/mock"
 	"github.com/keitatwr/task-management-app/usecase"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
-func getMockSessionManager(t *testing.T) (*mocks.MockSessionManager, func()) {
-	mockCtrl := gomock.NewController(t)
-	tearDown := func() {
-		defer mockCtrl.Finish()
-	}
-	return mocks.NewMockSessionManager(mockCtrl), tearDown
+type mockSessionManager struct {
+	session.SessionManager
 }
 
-func TestCreateSession(t *testing.T) {
+func (m *mockSessionManager) CreateSession(ctx *gin.Context, user domain.User) error {
+	return nil
+}
+
+type errMockSessionManager struct {
+	session.SessionManager
+}
+
+func (em *errMockSessionManager) CreateSession(ctx *gin.Context, user domain.User) error {
+	return fmt.Errorf("failed to create session")
+}
+
+func TestFetchUserByEmail(t *testing.T) {
 	type args struct {
-		userID int
+		ctx   context.Context
+		email string
 	}
+
 	tests := []struct {
-		title         string
-		args          domain.User
-		expectedError bool
+		title             string
+		args              args
+		setupMockUserRepo func(repo *mock.MockUserRepository)
+		wantUser          *domain.User
+		wantError         error
 	}{
 		{
-			"create session successfully",
-			domain.User{
-				ID:       1,
-				Name:     "test name",
-				Email:    "test email",
-				Password: "test password",
+			"success",
+			args{
+				ctx:   context.TODO(),
+				email: "test@example.com",
 			},
-			false,
+			func(repo *mock.MockUserRepository) {
+				repo.EXPECT().FetchUserByEmail(gomock.Any(), "test@example.com").
+					Return(&domain.User{
+						Name:     "test",
+						Email:    "test@example.com",
+						Password: "password",
+					}, nil)
+			},
+			&domain.User{
+				Name:     "test",
+				Email:    "test@example.com",
+				Password: "password",
+			},
+			nil,
 		},
 		{
-			"fail to create session",
-			domain.User{
-				ID:       1,
-				Name:     "test name",
-				Email:    "test email",
-				Password: "test password",
+			"fetch user failed",
+			args{
+				ctx:   context.TODO(),
+				email: "test@example.com",
 			},
-			true,
+			func(repo *mock.MockUserRepository) {
+				repo.EXPECT().FetchUserByEmail(gomock.Any(), "test@example.com").
+					Return(nil, myerror.ErrQueryFailed)
+			},
+			nil,
+			myerror.ErrQueryFailed,
+		},
+		{
+			"user not found",
+			args{
+				ctx:   context.TODO(),
+				email: "test@example.com",
+			},
+			func(repo *mock.MockUserRepository) {
+				repo.EXPECT().FetchUserByEmail(gomock.Any(), "test@example.com").
+					Return(nil, myerror.ErrUserNotFound)
+			},
+			nil,
+			myerror.ErrUserNotFound,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
-			mock, tearDown := getMockSessionManager(t)
-			defer tearDown()
+			// mock
+			mockUserRepository, teardown := helper.GetMockUserRepository(t)
+			defer teardown()
 
-			// Create a new gin context
-			ginCtx, _ := gin.CreateTestContext(nil)
-
-			if tt.expectedError {
-				mock.EXPECT().CreateSession(ginCtx, tt.args).Return(fmt.Errorf("failed to create session"))
-			} else {
-				mock.EXPECT().CreateSession(ginCtx, tt.args).Return(nil)
+			if tt.setupMockUserRepo != nil {
+				tt.setupMockUserRepo(mockUserRepository)
 			}
 
-			lu := usecase.NewLoginUsecase(nil, mock, 0)
-			err := lu.CreateSession(ginCtx, tt.args)
+			lu := usecase.NewLoginUsecase(mockUserRepository, &mockSessionManager{})
 
-			// assert
-			if tt.expectedError {
-				assert.Equal(t, "failed to create session", err.Error())
+			user, err := lu.FetchUserByEmail(tt.args.ctx, tt.args.email)
+
+			if tt.wantError != nil {
+				assert.Error(t, err)
+				assert.Equal(t, tt.wantError, err)
 			} else {
-				assert.Equal(t, nil, err)
-
+				assert.NoError(t, err)
+				opt := cmpopts.IgnoreFields(domain.User{}, "CreatedAt")
+				if diff := cmp.Diff(tt.wantUser, user, opt); diff != "" {
+					t.Errorf("diff: (-want +got)\n%s", diff)
+				}
 			}
+		})
+	}
+}
 
+func TestCreateSession(t *testing.T) {
+	type args struct {
+		ctx  *gin.Context
+		user domain.User
+	}
+
+	tests := []struct {
+		title         string
+		args          args
+		expectedError error
+	}{
+		{
+			"success",
+			args{
+				ctx: &gin.Context{},
+				user: domain.User{
+					ID:       1,
+					Name:     "test name",
+					Email:    "test email",
+					Password: "test password",
+				},
+			},
+			nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.title, func(t *testing.T) {
+			lu := usecase.NewLoginUsecase(nil, &mockSessionManager{})
+			err := lu.CreateSession(tt.args.ctx, tt.args.user)
+			if tt.expectedError != nil {
+				assert.Error(t, err)
+				assert.Equal(t, tt.expectedError, err)
+			} else {
+				assert.Nil(t, err)
+			}
 		})
 	}
 }

@@ -12,98 +12,84 @@ import (
 	"github.com/keitatwr/task-management-app/domain"
 	"github.com/keitatwr/task-management-app/internal/myerror"
 	"github.com/keitatwr/task-management-app/repository"
+	"github.com/keitatwr/task-management-app/tests/helper"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-type AnyTime struct{}
-
-func (a AnyTime) Match(v driver.Value) bool {
-	_, ok := v.(time.Time)
-	return ok
-}
-
-var anyTime time.Time
-
 var AnyDate domain.DateOnly
 
-func getDbMock(t *testing.T) (*gorm.DB, sqlmock.Sqlmock, func()) {
-	// SQLMockの初期化
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err, "failed to create SQL mock")
-
-	// GORMの初期化
-	gdb, err := gorm.Open(postgres.New(postgres.Config{
-		Conn: db,
-	}), &gorm.Config{})
-	require.NoError(t, err, "failed to open gorm DB connection")
-
-	tearDown := func() {
-		db.Close()
+func TestCreateTask(t *testing.T) {
+	type args struct {
+		ctx  context.Context
+		task *domain.Task
 	}
 
-	return gdb, mock, tearDown
-}
-
-func TestCreateTask(t *testing.T) {
 	tests := []struct {
 		title        string
-		setGetTxFunc func(*gorm.DB)
-		task         *domain.Task
+		args         args
 		query        string
+		setGetTxFunc func(*gorm.DB)
 		wantError    error
 	}{
 		{
 			"success",
+			args{
+				ctx: context.TODO(),
+				task: &domain.Task{
+					Title:       "test",
+					Description: "test",
+					Completed:   false,
+					CreatedBy:   1,
+					DueDate:     AnyDate,
+				},
+			},
+			`INSERT INTO "tasks" ("title","description","completed","created_by","due_date","created_at") VALUES ($1,$2,$3,$4,$5,$6)`,
 			func(tx *gorm.DB) {
 				repository.GetTxFunc = func(ctx context.Context) (*gorm.DB, bool) {
 					return tx, true
 				}
 			},
-			&domain.Task{
-				Title:       "test",
-				Description: "test",
-				Completed:   false,
-				CreatedBy:   1,
-				DueDate:     AnyDate,
-			},
-			`INSERT INTO "tasks" ("title","description","completed","created_by","due_date","created_at") VALUES ($1,$2,$3,$4,$5,$6)`,
 			nil,
 		},
 		{
 			"create task failed",
+			args{
+				ctx: context.TODO(),
+				task: &domain.Task{
+					Title:       "test",
+					Description: "test",
+					Completed:   false,
+					CreatedBy:   1,
+					DueDate:     AnyDate,
+				},
+			},
+			`INSERT INTO "tasks" ("title","description","completed","created_by","due_date","created_at") VALUES ($1,$2,$3,$4,$5,$6)`,
 			func(tx *gorm.DB) {
 				repository.GetTxFunc = func(ctx context.Context) (*gorm.DB, bool) {
 					return tx, true
 				}
 			},
-			&domain.Task{
-				Title:       "test",
-				Description: "test",
-				Completed:   false,
-				CreatedBy:   1,
-				DueDate:     AnyDate,
-			},
-			`INSERT INTO "tasks" ("title","description","completed","created_by","due_date","created_at") VALUES ($1,$2,$3,$4,$5,$6)`,
 			myerror.ErrQueryFailed,
 		},
 		{
 			"transaction not found",
+			args{
+				ctx: context.TODO(),
+				task: &domain.Task{
+					Title:       "test",
+					Description: "test",
+					Completed:   false,
+					CreatedBy:   1,
+					DueDate:     AnyDate,
+				},
+			},
+			`INSERT INTO "tasks" ("title","description","completed","created_by","due_date","created_at") VALUES ($1,$2,$3,$4,$5,$6)`,
 			func(tx *gorm.DB) {
 				repository.GetTxFunc = func(ctx context.Context) (*gorm.DB, bool) {
 					return nil, false
 				}
 			},
-			&domain.Task{
-				Title:       "test",
-				Description: "test",
-				Completed:   false,
-				CreatedBy:   1,
-				DueDate:     AnyDate,
-			},
-			`INSERT INTO "tasks" ("title","description","completed","created_by","due_date","created_at") VALUES ($1,$2,$3,$4,$5,$6)`,
 			myerror.ErrTransactionNotFound,
 		},
 	}
@@ -111,7 +97,7 @@ func TestCreateTask(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
 			// mock
-			db, mock, tearDown := getDbMock(t)
+			db, mock, tearDown := helper.GetDBMock(t)
 			defer tearDown()
 
 			switch tt.wantError {
@@ -120,25 +106,24 @@ func TestCreateTask(t *testing.T) {
 				mock.MatchExpectationsInOrder(false)
 				mock.ExpectBegin()
 				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
-					WithArgs(tt.task.Title, tt.task.Description, tt.task.Completed,
-						tt.task.CreatedBy, tt.task.DueDate, AnyTime{}).
+					WithArgs(tt.args.task.Title, tt.args.task.Description, tt.args.task.Completed,
+						tt.args.task.CreatedBy, tt.args.task.DueDate, helper.AnyTime{}).
 					WillReturnError(tt.wantError)
 				mock.ExpectRollback()
 			default:
 				mock.MatchExpectationsInOrder(false)
 				mock.ExpectBegin()
 				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
-					WithArgs(tt.task.Title, tt.task.Description, tt.task.Completed,
-						tt.task.CreatedBy, tt.task.DueDate, AnyTime{}).
+					WithArgs(tt.args.task.Title, tt.args.task.Description, tt.args.task.Completed,
+						tt.args.task.CreatedBy, tt.args.task.DueDate, helper.AnyTime{}).
 					WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 				mock.ExpectCommit()
 			}
 
 			// run
-			ctx := context.TODO()
 			tt.setGetTxFunc(db)
 			r := repository.NewTaskRepository(db)
-			id, err := r.Create(ctx, tt.task)
+			id, err := r.Create(tt.args.ctx, tt.args.task)
 
 			// assert
 			if tt.wantError != nil {
@@ -159,49 +144,54 @@ func TestCreateTask(t *testing.T) {
 func TestFetchAllTaskByTaskID(t *testing.T) {
 	// now := time.Now()
 	type args struct {
+		ctx     context.Context
 		taskIDs []int
-		query   string
-		mockRow [][]driver.Value
 	}
+
 	tests := []struct {
 		title     string
 		args      args
+		query     string
+		mockRow   [][]driver.Value
 		wantTasks []domain.Task
 		wantError error
 	}{
 		{
 			"success",
 			args{
+				ctx:     context.TODO(),
 				taskIDs: []int{1, 2},
-				query:   `SELECT * FROM "tasks" WHERE id IN ($1,$2)`,
-				mockRow: [][]driver.Value{
-					[]driver.Value{1, "test", "test", false, 1, AnyDate, anyTime},
-					[]driver.Value{2, "test", "test", false, 1, AnyDate, anyTime},
-				},
+			},
+			`SELECT * FROM "tasks" WHERE id IN ($1,$2)`,
+			[][]driver.Value{
+				[]driver.Value{1, "test", "test", false, 1, AnyDate, time.Time{}},
+				[]driver.Value{2, "test", "test", false, 1, AnyDate, time.Time{}},
 			},
 			[]domain.Task{
-				{ID: 1, Title: "test", Description: "test", Completed: false, CreatedBy: 1, DueDate: AnyDate, CreatedAt: anyTime},
-				{ID: 2, Title: "test", Description: "test", Completed: false, CreatedBy: 1, DueDate: AnyDate, CreatedAt: anyTime},
+				{ID: 1, Title: "test", Description: "test", Completed: false, CreatedBy: 1, DueDate: AnyDate, CreatedAt: time.Time{}},
+				{ID: 2, Title: "test", Description: "test", Completed: false, CreatedBy: 1, DueDate: AnyDate, CreatedAt: time.Time{}},
 			},
 			nil,
 		},
 		{
 			"tasks not found",
 			args{
+				ctx:     context.TODO(),
 				taskIDs: []int{1, 2},
-				query:   `SELECT * FROM "tasks" WHERE id IN ($1,$2)`,
-				mockRow: nil,
 			},
+			`SELECT * FROM "tasks" WHERE id IN ($1,$2)`,
+			nil,
 			nil,
 			myerror.ErrTaskNotFound,
 		},
 		{
 			"query failed",
 			args{
+				ctx:     context.TODO(),
 				taskIDs: []int{1, 2},
-				query:   `SELECT * FROM "tasks" WHERE id IN ($1,$2)`,
-				mockRow: nil,
 			},
+			`SELECT * FROM "tasks" WHERE id IN ($1,$2)`,
+			nil,
 			nil,
 			myerror.ErrQueryFailed,
 		},
@@ -210,34 +200,33 @@ func TestFetchAllTaskByTaskID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
 			// mock
-			db, mock, tearDown := getDbMock(t)
+			db, mock, tearDown := helper.GetDBMock(t)
 			defer tearDown()
 
 			mock.MatchExpectationsInOrder(false)
 
 			switch tt.wantError {
 			case myerror.ErrTaskNotFound:
-				mock.ExpectQuery(regexp.QuoteMeta(tt.args.query)).
+				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
 					WithArgs(1, 2).
 					WillReturnError(gorm.ErrRecordNotFound)
 			case myerror.ErrQueryFailed:
-				mock.ExpectQuery(regexp.QuoteMeta(tt.args.query)).
+				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
 					WithArgs(1, 2).
 					WillReturnError(fmt.Errorf("failed to fetch tasks"))
 			default:
 				rows := sqlmock.NewRows([]string{"id", "title", "description", "completed", "created_by", "due_date", "created_at"})
-				for _, row := range tt.args.mockRow {
+				for _, row := range tt.mockRow {
 					rows.AddRow(row...)
 				}
-				mock.ExpectQuery(regexp.QuoteMeta(tt.args.query)).
+				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
 					WithArgs(1, 2).
 					WillReturnRows(rows)
 			}
 
 			// run
-			ctx := context.TODO()
 			r := repository.NewTaskRepository(db)
-			tasks, err := r.FetchAllTaskByTaskID(ctx, tt.args.taskIDs...)
+			tasks, err := r.FetchAllTaskByTaskID(tt.args.ctx, tt.args.taskIDs...)
 
 			// assert
 			if tt.wantError != nil {
@@ -257,45 +246,49 @@ func TestFetchAllTaskByTaskID(t *testing.T) {
 }
 
 func TestFetchTaskByTaskID(t *testing.T) {
-	// now := time.Now()
 	type args struct {
-		taskID  int
-		query   string
-		mockRow []driver.Value
+		ctx    context.Context
+		taskID int
 	}
+
 	tests := []struct {
 		title     string
 		args      args
+		query     string
+		mockRow   []driver.Value
 		wantTask  *domain.Task
 		wantError error
 	}{
 		{
 			"success",
 			args{
-				taskID:  1,
-				query:   `SELECT * FROM "tasks" WHERE id = $1 LIMIT $2`,
-				mockRow: []driver.Value{1, "test", "test", false, 1, AnyDate, anyTime},
+				ctx:    context.TODO(),
+				taskID: 1,
 			},
-			&domain.Task{ID: 1, Title: "test", Description: "test", Completed: false, CreatedBy: 1, DueDate: AnyDate, CreatedAt: anyTime},
+			`SELECT * FROM "tasks" WHERE id = $1 LIMIT $2`,
+			[]driver.Value{1, "test", "test", false, 1, AnyDate, time.Time{}},
+			&domain.Task{ID: 1, Title: "test", Description: "test", Completed: false, CreatedBy: 1, DueDate: AnyDate, CreatedAt: time.Time{}},
 			nil,
 		},
 		{
 			"task not found",
 			args{
-				taskID:  1,
-				query:   `SELECT * FROM "tasks" WHERE id = $1 LIMIT $2`,
-				mockRow: nil,
+				ctx:    context.TODO(),
+				taskID: 1,
 			},
+			`SELECT * FROM "tasks" WHERE id = $1 LIMIT $2`,
+			nil,
 			nil,
 			myerror.ErrTaskNotFound,
 		},
 		{
 			"query failed",
 			args{
-				taskID:  1,
-				query:   `SELECT * FROM "tasks" WHERE id = $1 LIMIT $2`,
-				mockRow: nil,
+				ctx:    context.TODO(),
+				taskID: 1,
 			},
+			`SELECT * FROM "tasks" WHERE id = $1 LIMIT $2`,
+			nil,
 			nil,
 			myerror.ErrQueryFailed,
 		},
@@ -304,32 +297,31 @@ func TestFetchTaskByTaskID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
 			// mock
-			db, mock, tearDown := getDbMock(t)
+			db, mock, tearDown := helper.GetDBMock(t)
 			defer tearDown()
 
 			mock.MatchExpectationsInOrder(false)
 
 			switch tt.wantError {
 			case myerror.ErrTaskNotFound:
-				mock.ExpectQuery(regexp.QuoteMeta(tt.args.query)).
+				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
 					WithArgs(tt.args.taskID, 1).
 					WillReturnError(gorm.ErrRecordNotFound)
 			case myerror.ErrQueryFailed:
-				mock.ExpectQuery(regexp.QuoteMeta(tt.args.query)).
+				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
 					WithArgs(tt.args.taskID, 1).
 					WillReturnError(fmt.Errorf("failed to fetch task"))
 			default:
 				rows := sqlmock.NewRows([]string{"id", "title", "description", "completed", "created_by", "due_date", "created_at"}).
-					AddRow(tt.args.mockRow...)
-				mock.ExpectQuery(regexp.QuoteMeta(tt.args.query)).
+					AddRow(tt.mockRow...)
+				mock.ExpectQuery(regexp.QuoteMeta(tt.query)).
 					WithArgs(tt.args.taskID, 1).
 					WillReturnRows(rows)
 			}
 
 			// run
-			ctx := context.TODO()
 			r := repository.NewTaskRepository(db)
-			task, err := r.FetchTaskByTaskID(ctx, tt.args.taskID)
+			task, err := r.FetchTaskByTaskID(tt.args.ctx, tt.args.taskID)
 
 			// assert
 			if tt.wantError != nil {
@@ -349,115 +341,162 @@ func TestFetchTaskByTaskID(t *testing.T) {
 	}
 }
 
-// func TestUpdateTodo(t *testing.T) {
-// 	tests := []struct {
-// 		title         string
-// 		id            int
-// 		expectedError bool
-// 	}{
-// 		{
-// 			"update todo successfully",
-// 			1,
-// 			false,
-// 		},
-// 		{
-// 			"update todo with error",
-// 			1,
-// 			true,
-// 		},
-// 	}
+func TestUpdateTask(t *testing.T) {
+	type args struct {
+		ctx          context.Context
+		taskID       int
+		updateFields map[string]any
+	}
 
-// 	for _, tt := range tests {
-// 		t.Run(tt.title, func(t *testing.T) {
-// 			// mock
-// 			db, mock, tearDown := GetDbMock(t)
-// 			defer tearDown()
-// 			mock.MatchExpectationsInOrder(false)
-// 			mock.ExpectBegin()
-// 			if tt.expectedError {
-// 				// regexp.QuoteMetaを使うと._+などのメタ文字がエスケープされるため、
-// 				// テストが期待通りに動作しない
-// 				mock.ExpectExec("UPDATE \"todos\" SET .+").
-// 					WillReturnError(fmt.Errorf("update todo error"))
-// 				mock.ExpectRollback()
-// 			} else {
-// 				mock.ExpectExec("UPDATE \"todos\" SET .+").
-// 					WillReturnResult(sqlmock.NewResult(1, 1))
-// 				mock.ExpectCommit()
-// 			}
+	tests := []struct {
+		title         string
+		args          args
+		query         string
+		expectedError error
+	}{
+		{
+			"update task successfully",
+			args{
+				ctx:    context.TODO(),
+				taskID: 1,
+				updateFields: map[string]any{
+					"title":       "test",
+					"description": "test",
+					"due_date":    AnyDate,
+				},
+			},
+			`UPDATE "tasks" SET "description"=$1,"due_date"=$2,"title"=$3 WHERE id = $4`,
+			nil,
+		},
+		{
+			"update task failed",
+			args{
+				ctx:    context.TODO(),
+				taskID: 1,
+				updateFields: map[string]any{
+					"title":       "test",
+					"description": "test",
+					"due_date":    AnyDate,
+				},
+			},
+			`UPDATE "tasks" SET "description"=$1,"due_date"=$2,"title"=$3 WHERE id = $4`,
+			myerror.ErrQueryFailed,
+		},
+	}
 
-// 			// run
-// 			r := repository.NewTodoRepository(db)
-// 			err := r.Update(context.TODO(), tt.id)
+	for _, tt := range tests {
+		t.Run(tt.title, func(t *testing.T) {
+			// mock
+			db, mock, tearDown := helper.GetDBMock(t)
+			defer tearDown()
 
-// 			// assert
-// 			if tt.expectedError {
-// 				assert.Error(t, err)
-// 			} else {
-// 				assert.NoError(t, err)
-// 			}
+			switch tt.expectedError {
+			case myerror.ErrQueryFailed:
+				mock.MatchExpectationsInOrder(false)
+				mock.ExpectBegin()
+				mock.ExpectExec(regexp.QuoteMeta(tt.query)).
+					WithArgs("test", AnyDate, "test", 1).
+					WillReturnError(fmt.Errorf("update task error"))
+				mock.ExpectRollback()
+			default:
+				mock.MatchExpectationsInOrder(false)
+				mock.ExpectBegin()
+				mock.ExpectExec(regexp.QuoteMeta(tt.query)).
+					WithArgs("test", AnyDate, "test", 1).
+					WillReturnResult(sqlmock.NewResult(1, 1))
+				mock.ExpectCommit()
+			}
 
-// 			if err := mock.ExpectationsWereMet(); err != nil {
-// 				t.Errorf("there were unfulfilled expectations: %s", err)
-// 			}
-// 		})
-// 	}
-// }
+			// run
+			r := repository.NewTaskRepository(db)
+			err := r.Update(tt.args.ctx, tt.args.taskID, tt.args.updateFields)
 
-// func TestDeleteTodo(t *testing.T) {
-// 	tests := []struct {
-// 		title         string
-// 		id            int
-// 		query         string
-// 		expectedError bool
-// 	}{
-// 		{
-// 			"delete todo successfully",
-// 			1,
-// 			`DELETE FROM "todos" WHERE id = $1`,
-// 			false,
-// 		},
-// 		{
-// 			"delete todo with error",
-// 			1,
-// 			`DELETE FROM "todos" WHERE id = $1`,
-// 			true,
-// 		},
-// 	}
+			// assert
+			if tt.expectedError != nil {
+				assert.Error(t, err)
+				assert.Equal(t, tt.expectedError, err)
+			} else {
+				assert.NoError(t, err)
+			}
 
-// 	for _, tt := range tests {
-// 		t.Run(tt.title, func(t *testing.T) {
-// 			// mock
-// 			db, mock, tearDown := GetDbMock(t)
-// 			defer tearDown()
-// 			mock.MatchExpectationsInOrder(false)
-// 			mock.ExpectBegin()
-// 			if tt.expectedError {
-// 				mock.ExpectExec(regexp.QuoteMeta(tt.query)).
-// 					WithArgs(tt.id).
-// 					WillReturnError(fmt.Errorf("delete error"))
-// 				mock.ExpectRollback()
-// 			} else {
-// 				mock.ExpectExec(regexp.QuoteMeta(tt.query)).
-// 					WithArgs(tt.id).
-// 					WillReturnResult(sqlmock.NewResult(1, 1))
-// 				mock.ExpectCommit()
-// 			}
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("there were unfulfilled expectations: %s", err)
+			}
+		})
 
-// 			// run
-// 			r := repository.NewTodoRepository(db)
-// 			err := r.Delete(context.TODO(), tt.id)
+	}
+}
 
-// 			// assert
-// 			if tt.expectedError {
-// 				assert.Error(t, err)
-// 			} else {
-// 				assert.NoError(t, err)
-// 			}
+func TestDeleteTask(t *testing.T) {
+	type args struct {
+		ctx    context.Context
+		taskID int
+	}
 
-// 			if err := mock.ExpectationsWereMet(); err != nil {
-// 				t.Errorf("there were unfulfilled expectations: %s", err)
-// 			}
-// 		})
-// 	}
-// }
+	tests := []struct {
+		title     string
+		args      args
+		query     string
+		wantError error
+	}{
+		{
+			"success",
+			args{
+				ctx:    context.TODO(),
+				taskID: 1,
+			},
+			`DELETE FROM "tasks" WHERE id = $1`,
+			nil,
+		},
+		{
+			"delete task failed",
+			args{
+				ctx:    context.TODO(),
+				taskID: 1,
+			},
+			`DELETE FROM "tasks" WHERE id = $1`,
+			myerror.ErrQueryFailed,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.title, func(t *testing.T) {
+			// mock
+			db, mock, tearDown := helper.GetDBMock(t)
+			defer tearDown()
+
+			switch tt.wantError {
+			case myerror.ErrQueryFailed:
+				mock.MatchExpectationsInOrder(false)
+				mock.ExpectBegin()
+				mock.ExpectExec(regexp.QuoteMeta(tt.query)).
+					WithArgs(tt.args.taskID).
+					WillReturnError(fmt.Errorf("delete task error"))
+				mock.ExpectRollback()
+			default:
+				mock.MatchExpectationsInOrder(false)
+				mock.ExpectBegin()
+				mock.ExpectExec(regexp.QuoteMeta(tt.query)).
+					WithArgs(tt.args.taskID).
+					WillReturnResult(sqlmock.NewResult(1, 1))
+				mock.ExpectCommit()
+			}
+
+			// run
+			r := repository.NewTaskRepository(db)
+			err := r.Delete(tt.args.ctx, tt.args.taskID)
+
+			// assert
+			if tt.wantError != nil {
+				assert.Error(t, err)
+				assert.Equal(t, tt.wantError, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("there were unfulfilled expectations: %s", err)
+			}
+		})
+	}
+}
