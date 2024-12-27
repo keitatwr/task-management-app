@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -79,14 +77,6 @@ func (sc *SignupController) handleValidationError(c *gin.Context, err error) {
 		vErr = myerror.ErrValidation.WrapWithDescription(e,
 			fmt.Sprintf("json syntax error, offset: %d", e.Offset))
 
-	case *time.ParseError:
-		vErr = myerror.ErrValidation.WrapWithDescription(e,
-			fmt.Sprintf("time parse error, expect format: %s", "yyyy-mm-dd"))
-
-	case *strconv.NumError:
-		vErr = myerror.ErrValidation.WrapWithDescription(e,
-			"string convert error, expect format: number")
-
 	default:
 		vErr = myerror.ErrUnExpected.WithDescription(err.Error())
 	}
@@ -110,7 +100,7 @@ func (sc *SignupController) handleCreateError(c *gin.Context, err error) {
 			response.Error(c, http.StatusInternalServerError, "failed to create user", err)
 			return
 		default:
-			logger.W(ctx, "failed to create user", err)
+			logger.E(ctx, "failed to create user", err)
 			response.Error(c, http.StatusInternalServerError, "failed to create user", err)
 		}
 	}
