@@ -54,6 +54,17 @@ func (r *taskRepository) FetchTaskByTaskID(ctx context.Context, taskID int) (*do
 	return &task, nil
 }
 
-func (r *taskRepository) Update(ctx context.Context, task *domain.Task) error {
+func (r *taskRepository) Update(ctx context.Context, taskID int, updateFields map[string]any) error {
+	var task domain.Task
+	if err := r.db.WithContext(ctx).Model(&task).Where("id = ?", taskID).Select("title", "description", "due_date").Updates(updateFields).Error; err != nil {
+		return myerror.ErrQueryFailed.Wrap(err)
+	}
+	return nil
+}
+
+func (r *taskRepository) Delete(ctx context.Context, taskID int) error {
+	if err := r.db.WithContext(ctx).Where("id = ?", taskID).Delete(&domain.Task{}).Error; err != nil {
+		return myerror.ErrQueryFailed.Wrap(err)
+	}
 	return nil
 }
