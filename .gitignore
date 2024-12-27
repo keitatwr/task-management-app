@@ -5,3 +5,4 @@ client/*
 *.log
 gen_mock.sh
 Makefile
+coverage.*
