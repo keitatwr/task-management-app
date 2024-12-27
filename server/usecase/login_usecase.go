@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/keitatwr/task-management-app/domain"
@@ -12,20 +11,17 @@ import (
 type loginUsecase struct {
 	userRepository domain.UserRepository
 	sessionManager session.SessionManager
-	contextTimeout time.Duration
 }
 
-func NewLoginUsecase(ur domain.UserRepository, sm session.SessionManager,
-	timeout time.Duration) domain.LoginUsecase {
+func NewLoginUsecase(ur domain.UserRepository, sm session.SessionManager) domain.LoginUsecase {
 	return &loginUsecase{
 		userRepository: ur,
 		sessionManager: sm,
-		contextTimeout: timeout,
 	}
 }
 
-func (lu *loginUsecase) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
-	user, err := lu.userRepository.GetUserByEmail(ctx, email)
+func (lu *loginUsecase) FetchUserByEmail(ctx context.Context, email string) (*domain.User, error) {
+	user, err := lu.userRepository.FetchUserByEmail(ctx, email)
 	if err != nil {
 		return nil, err
 	}
