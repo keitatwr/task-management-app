@@ -11,6 +11,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/keitatwr/task-management-app/api/middleware"
 	"github.com/keitatwr/task-management-app/domain"
+	"github.com/keitatwr/task-management-app/internal/myerror"
+	"github.com/keitatwr/task-management-app/tests/helper"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -51,22 +53,28 @@ func setup() *gin.Engine {
 
 func TestAuthMiddleware(t *testing.T) {
 	tests := []struct {
-		title        string
-		wantAuth     bool
-		expectedCode int
-		expectedBody string
+		title    string
+		wantCode int
+		wantBody interface{}
 	}{
 		{
-			"authentication success",
-			true,
+			"success",
 			http.StatusOK,
 			`{"message":"success"}`,
 		},
 		{
-			"authentication failure",
-			false,
+			"authentication failed",
 			http.StatusUnauthorized,
-			`{"message":"unauthorized"}`,
+			domain.ErrorResponse{
+				Message: "unauthorized",
+				Errors: []domain.ErrorItem{
+					{
+						Code:        int(myerror.CodeNoLogin),
+						Message:     myerror.ErrMessages[myerror.CodeNoLogin],
+						Description: "user not logged in",
+					},
+				},
+			},
 		},
 	}
 
@@ -79,7 +87,8 @@ func TestAuthMiddleware(t *testing.T) {
 		// test suite
 		t.Run(tt.title, func(t *testing.T) {
 			var sessionCookie string
-			if tt.wantAuth {
+
+			if tt.wantCode == http.StatusOK {
 				// request to the public endpoint
 				wPub := httptest.NewRecorder()
 				reqPub, _ := http.NewRequest("GET", "/public", nil)
@@ -95,14 +104,19 @@ func TestAuthMiddleware(t *testing.T) {
 			w2 := httptest.NewRecorder()
 			req2, _ := http.NewRequest("GET", "/protected", nil)
 			req2.Header.Set("Content-Type", "application/json")
-			if tt.wantAuth {
+			if tt.wantCode == http.StatusOK {
 				req2.Header.Set("Cookie", sessionCookie)
 			}
 			r.ServeHTTP(w2, req2)
 
 			// Assert that the protected endpoint responds with success
-			assert.Equal(t, tt.expectedCode, w2.Code)
-			assert.JSONEq(t, tt.expectedBody, w2.Body.String())
+			if tt.wantCode == http.StatusOK {
+				assert.Equal(t, tt.wantCode, w2.Code)
+				assert.JSONEq(t, tt.wantBody.(string), w2.Body.String())
+			} else {
+				assert.Equal(t, tt.wantCode, w2.Code)
+				helper.AssertResponse(t, tt.wantCode, tt.wantBody, w2)
+			}
 		})
 	}
 }
