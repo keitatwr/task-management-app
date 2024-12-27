@@ -20,7 +20,7 @@ func NewTaskPermissionRepository(db *gorm.DB) domain.TaskPermissionRepository {
 }
 
 func (r *taskPermissionRepository) GrantPermission(ctx context.Context, taskPermission *domain.TaskPermission) error {
-	tx, ok := GetTx(ctx)
+	tx, ok := GetTxFunc(ctx)
 	if !ok {
 		return myerror.ErrTransactionNotFound
 	}
@@ -35,13 +35,7 @@ func (r *taskPermissionRepository) FetchTaskIDByUserID(ctx context.Context, user
 	var taskPermission domain.TaskPermission
 	query := r.db.WithContext(ctx).Model(&taskPermission).Select("task_id").Where("user_id = ?", userID)
 
-	if canEdit && canRead {
-		query = query.Where("can_edit = ? AND can_read = ?", true, true)
-	} else if canEdit && !canRead {
-		query = query.Where("can_edit = ? AND can_read = ?", true, false)
-	} else if !canEdit && canRead {
-		query = query.Where("can_edit = ? AND can_read = ?", false, true)
-	}
+	query = query.Where("can_edit = ? AND can_read = ?", canEdit, canRead)
 
 	if err := query.Find(&taskIDs).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
