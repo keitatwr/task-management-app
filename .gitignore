@@ -6,3 +6,4 @@ client/*
 gen_mock.sh
 Makefile
 coverage.*
+server/tmp/main
