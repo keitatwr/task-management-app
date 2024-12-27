@@ -20,6 +20,6 @@ func NewTaskRouter(timeout time.Duration, db *gorm.DB, r *gin.RouterGroup) {
 	r.POST("/tasks", tc.Create)
 	r.GET("/tasks", tc.FetchAllTaskByUserID)
 	r.GET("/tasks/:taskID", tc.FetchTaskByTaskID)
-	// r.PUT("/todo", tc.Update)
-	// r.DELETE("/todo", tc.Delete)
+	r.PUT("/tasks/:taskID", tc.Update)
+	r.DELETE("/tasks/:taskID", tc.Delete)
 }

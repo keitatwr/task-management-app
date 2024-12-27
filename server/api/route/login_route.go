@@ -15,7 +15,7 @@ import (
 func NewLoginRouter(timeout time.Duration, db *gorm.DB, r *gin.RouterGroup) {
 	ur := repository.NewUserReposiotry(db)
 	lc := controller.LoginController{
-		LoginUsecase:      usecase.NewLoginUsecase(ur, session.NewSessionManager(), timeout),
+		LoginUsecase:      usecase.NewLoginUsecase(ur, session.NewSessionManager()),
 		PasswordCompareer: &security.BcryptPasswordComparer{},
 	}
 	r.POST("/login", lc.Login)
